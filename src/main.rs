@@ -366,7 +366,7 @@ fn galaxy(n: usize, radius: f32) -> Vec<Vec2<f32>> {
     }
     positions*/
     let inner = 0.2 * radius;
-    let arms = 15.0;
+    let arms = 31.0;
     let parameters: Vec<(f32, f32)> = (0..n).map(|i| i as f32 / n as f32).map(|t| (arms * t * TAU as f32, inner + t * (radius - inner))).collect();
     parameters.iter().map(|(a, r)| Vec2::make(r * a.cos(), r * a.sin())).collect()
 }
@@ -378,7 +378,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let mut simulation = Simulation::new();
 
     // add stars
-    for p in galaxy(200, 10.0) {
+    for p in galaxy(2000, 10.0) {
         simulation.add(p, Vec2::zero(), 0.1);
     }
     simulation.state.velocities = oribtal_velocity(&simulation);

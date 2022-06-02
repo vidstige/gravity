@@ -138,10 +138,12 @@ fn main() -> std::result::Result<(), std::io::Error> {
     }
 
     let dt = 1.0 / FPS as f32;
-    loop {
+    //loop {
+    for _ in 0..100 {
         step(&mut stars, dt);
         draw(&mut frame, &stars, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
         thread::sleep(time::Duration::from_secs_f32(dt));
     }
+    Ok(())
 }

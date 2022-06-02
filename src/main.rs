@@ -124,7 +124,7 @@ impl State {
     }
 }
 
-const G: f32 = 0.01;
+const G: f32 = 0.2;
 struct Simulation {
     state: State,
     masses: Vec<f32>,
@@ -248,22 +248,25 @@ fn galaxy(n: usize, radius: f32) -> Vec<Vec2<f32>> {
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
     let mut frame = Frame::new((506, 253));
-    let zoom = Zoom{center: Vec2::zero(), scale: 25.0, resolution: frame.resolution};
+    let zoom = Zoom{center: Vec2::zero(), scale: 10.0, resolution: frame.resolution};
     let mut simulation = Simulation::new();
 
     // add stars
-    for p in galaxy(200, 5.0) {
+    for p in galaxy(200, 10.0) {
         simulation.add(p, Vec2::zero(), 0.1);
     }
     simulation.state.velocities = oribtal_velocity(&simulation);
     // add black hole
-    //simulation.add(Vec2::zero(), Vec2::zero(), 10.0);
+    simulation.add(Vec2::zero(), Vec2::zero(), 22.0);
     
 
     let dt = 1.0 / FPS as f32;
     let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();
-    loop {
-        step(&mut simulation, dt);
+    const STEPS: usize = 4;  // steps per frame
+    for _ in 0..250 {
+        for _ in 0..STEPS {        
+            step(&mut simulation, dt / STEPS as f32);
+        }
         add_points(&mut trails, &simulation.state.positions, 10);
         clear(&mut frame);
         draw(&mut frame, &trails, &zoom);
@@ -271,4 +274,5 @@ fn main() -> std::result::Result<(), std::io::Error> {
         thread::sleep(time::Duration::from_secs_f32(dt));
         eprintln!("E={}", simulation.energy());
     }
+    Ok(())
 }

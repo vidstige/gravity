@@ -68,12 +68,6 @@ impl Vec2<f32> {
     }
 }
 
-struct Star {
-    p: Vec2<f32>,
-    v: Vec2<f32>,
-    m: f32,
-}
-
 struct Zoom {
     center: Vec2<f32>,
     scale: f32,
@@ -96,7 +90,7 @@ fn inside(p: Vec2<f32>, resolution: Resolution) -> bool {
 }
 
 type Trail = VecDeque<Vec2<f32>>;
-fn add_points(trails: &mut Vec<Trail>, points: Vec<Vec2<f32>>, length: usize) {
+fn add_points(trails: &mut Vec<Trail>, points: &Vec<Vec2<f32>>, length: usize) {
     for i in 0..points.len() {
         trails[i].push_back(points[i]);
         while trails[i].len() > length {
@@ -116,16 +110,46 @@ fn draw(frame: &mut Frame, trails: &Vec<Trail>, zoom: &Zoom) {
     }
 }
 
+struct State {
+    positions: Vec<Vec2<f32>>,
+    velocities: Vec<Vec2<f32>>,
+}
+impl State {
+    fn len(&self) -> usize {
+        self.positions.len()
+    }
+}
 const G: f32 = 0.01;
-fn gravity_forces(stars: &Vec<Star>) -> Vec<Vec2<f32>> {
-    let mut forces: Vec<Vec2<f32>> = stars.iter().map(|_| Vec2::zero()).collect();
-    for i in 0..stars.len()-1 {
-        for j in i+1..stars.len()  {
-            let si = &stars[i];
-            let sj = &stars[j];
-            let delta = si.p.sub(sj.p);
+struct Simulation {
+    state: State,
+    masses: Vec<f32>,
+}
+impl Simulation {
+    fn new() -> Self {
+        Simulation{
+            state: State {
+                positions: vec!(),
+                velocities: vec!(),
+            },
+            masses: vec!(),
+        }
+    }
+    fn add(&mut self, position: Vec2<f32>, velocity: Vec2<f32>, mass: f32) {
+        self.state.positions.push(position);
+        self.state.velocities.push(velocity);
+        self.masses.push(mass);
+    }
+}
+
+fn gravity(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
+    let mut forces: Vec<Vec2<f32>> = state.positions.iter().map(|_| Vec2::zero()).collect();
+    for i in 0..state.len()-1 {
+        for j in i+1..state.len() {
+            let pi = state.positions[i];
+            let pj = state.positions[j];
+            let delta = pi.sub(pj);
             let r2 = delta.norm2();
-            let f = G * si.m * sj.m / r2;  // gravity force
+            let f = G * m[i] * m[j] / r2;  // gravity force
             let r = r2.sqrt();
             forces[i] = forces[i].add(delta.scale(-f / r));
             forces[j] = forces[j].add(delta.scale(f / r));
@@ -134,60 +158,60 @@ fn gravity_forces(stars: &Vec<Star>) -> Vec<Vec2<f32>> {
     forces
 }
 
-fn step(stars: &mut Vec<Star>, dt: f32) {
-    let forces = gravity_forces(stars);
-    for i in 0..stars.len() {
+fn step(simulation: &mut Simulation, dt: f32) {
+    let forces = gravity(&simulation.state, &simulation.masses);
+    for i in 0..simulation.masses.len() {
         let force = forces[i];
-        let star = &mut stars[i];
-        let acceleration = force.scale(1.0 / star.m);
-        star.p = star.p.add(star.v.scale(dt));
-        star.v = star.v.add(acceleration.scale(dt));
+        let acceleration = force.scale(1.0 / simulation.masses[i]);
+        simulation.state.positions[i] = simulation.state.positions[i].add(simulation.state.velocities[i].scale(dt));
+        simulation.state.velocities[i] = simulation.state.velocities[i].add(acceleration.scale(dt));
     }
 }
 
-fn oribtal_velocity(stars: &mut Vec<Star>) {
+// computes the velocities needed to maintain orbits
+fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
     // compute total mass and center of mass
     let mut mass = 0.0;
     let mut cm = Vec2::zero();
-    for star in stars.iter() {
-        mass += star.m;
-        cm = cm.add(star.p.scale(star.m));
+    for (p, m) in simulation.state.positions.iter().zip(simulation.masses.iter()) {
+        mass += m;
+        cm = cm.add(p.scale(*m));
     }
     cm = cm.scale(1.0 / mass);
-    
-    for star in stars.iter_mut() {
-        let delta = star.p.sub(cm);
+
+    simulation.state.positions.iter().map(|p| {
+        let delta = p.sub(cm);
         let r = delta.norm2().sqrt();
         let vo = (G * mass / r).sqrt();
-        star.v = delta.cross().scale(vo / r);
-    }
+        delta.cross().scale(vo / r)
+    }).collect()
 }
 
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
     let mut frame = Frame::new((506, 253));
     let zoom = Zoom{center: Vec2::zero(), scale: 25.0, resolution: frame.resolution};
-    let mut stars: Vec<Star> = vec!();
+    let mut simulation = Simulation::new();
 
+    // add stars
     let mut source = source::default();
     let distribution = Gaussian::new(0.0, 1.0);
-    //let distribution = Uniform::new(-1.0, 1.0);
     let mut sampler = Independent(&distribution, &mut source);
     for _ in 0..100 {
-        let p = Vec2::make(
+        let position = Vec2::make(
             sampler.next().unwrap() as f32,
             sampler.next().unwrap() as f32,
         );
-        stars.push(Star{p: p, v: Vec2::zero(), m: 0.1});
+        simulation.add(position, Vec2::zero(), 0.1);
     }
-    stars.push(Star{p: Vec2::zero(), v: Vec2::zero(), m: 10.0});
-    oribtal_velocity(&mut stars);
+    simulation.add(Vec2::zero(), Vec2::zero(), 10.0);
+    simulation.state.velocities = oribtal_velocity(&simulation);
 
     let dt = 1.0 / FPS as f32;
-    let mut trails = stars.iter().map(|_| VecDeque::new()).collect();
+    let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();
     loop {
-        step(&mut stars, dt);
-        add_points(&mut trails, stars.iter().map(|star| star.p).collect(), 10);
+        step(&mut simulation, dt);
+        add_points(&mut trails, &simulation.state.positions, 10);
         clear(&mut frame);
         draw(&mut frame, &trails, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();

@@ -179,19 +179,19 @@ fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
 }
 
 // Generic symplectic step for integrating hamiltonians
-fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<Vec2<f32>>) -> State {
+fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<(f32, f32)>) -> State {
     let mut q = simulation.state.positions.clone();
     let mut v = simulation.state.velocities.clone();
-    for c in coefficents {
-        v = add_scaled(&v, c.y * dt, &acceleration(&simulation.state, &simulation.masses));
-        q = add_scaled(&q, c.x * dt, &v);
+    for (c, d) in coefficents {
+        v = add_scaled(&v, c * dt, &acceleration(&simulation.state, &simulation.masses));
+        q = add_scaled(&q, d * dt, &v);
     }
     State{positions: q, velocities: v}
 }
 
 fn step(simulation: &mut Simulation, dt: f32) {
     //let euler = vec!(Vec2::make(1.0, 1.0));
-    let leap2 = vec!(Vec2::make(0.5, 0.0), Vec2::make(0.5, 1.0));
+    let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
     simulation.state = symplectic_step(simulation, dt, &leap2);
 }
 

@@ -51,7 +51,7 @@ impl Vec2<f32> {
     fn zero() -> Self {
         Vec2{x: 0.0, y: 0.0}
     }
-    fn add(self, rhs: Vec2<f32>) -> Self {
+    fn add(self, rhs: &Vec2<f32>) -> Self {
         Vec2{x: self.x + rhs.x, y: self.y + rhs.y}
     }
     fn sub(self, rhs: Vec2<f32>) -> Self {
@@ -118,11 +118,23 @@ impl State {
     fn len(&self) -> usize {
         self.positions.len()
     }
-    // scales a paramter state and adds to this
-    fn add_scaled(&self, k: f32, other: State) -> Self {
+    fn scale(&self, k: f32) -> State {
         State {
-            positions: self.positions.iter().zip(other.positions.iter()).map(|(a, b)| a.add(b.scale(k))).collect(),
-            velocities: self.velocities.iter().zip(other.velocities.iter()).map(|(a, b)| a.add(b.scale(k))).collect(),
+            positions: self.positions.iter().map(|p| p.scale(k)).collect(),
+            velocities: self.velocities.iter().map(|v| v.scale(k)).collect(),
+        }
+    }
+    fn add(&self, other: &State) -> State {
+        State {
+            positions: self.positions.iter().zip(other.positions.iter()).map(|(a, b)| a.add(b)).collect(),
+            velocities: self.velocities.iter().zip(other.velocities.iter()).map(|(a, b)| a.add(b)).collect(),
+        }
+    }
+    // scales a paramter state and adds to this
+    fn add_scaled(&self, k: f32, other: &State) -> Self {
+        State {
+            positions: self.positions.iter().zip(other.positions.iter()).map(|(a, b)| a.add(&b.scale(k))).collect(),
+            velocities: self.velocities.iter().zip(other.velocities.iter()).map(|(a, b)| a.add(&b.scale(k))).collect(),
         }
     }
 }
@@ -159,25 +171,42 @@ fn gravity(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
             let r2 = delta.norm2();
             let f = G * m[i] * m[j] / r2;  // gravity force
             let r = r2.sqrt();
-            forces[i] = forces[i].add(delta.scale(-f / r));
-            forces[j] = forces[j].add(delta.scale(f / r));
+            forces[i] = forces[i].add(&delta.scale(-f / r));
+            forces[j] = forces[j].add(&delta.scale(f / r));
         }
     }
     forces
 }
 
-fn euler(simulation: &mut Simulation, dt: f32) {
-    let forces = gravity(&simulation.state, &simulation.masses);
-    let accelerations = forces.iter().zip(simulation.masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect();
-    let delta_state = State {
-        positions: simulation.state.velocities.clone(),
+fn state_derivative(state: &State, masses: &Vec<f32>) -> State {
+    let forces = gravity(&state, masses);
+    let accelerations = forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect();
+    State {
+        positions: state.velocities.clone(),
         velocities: accelerations,
-    };
-    simulation.state = simulation.state.add_scaled(dt, delta_state);
+    }
 }
 
+fn rk4(simulation: &mut Simulation, dt: f32) {
+    let state = &simulation.state;
+    let masses = &simulation.masses;
+    
+    let k1 = state_derivative(state, masses).scale(dt);
+    let k2 = state_derivative(&state.add_scaled(0.5, &k1), masses).scale(dt);
+    let k3 = state_derivative(&state.add_scaled(0.5, &k2), masses).scale(dt);
+    let k4 = state_derivative(&state.add(&k3), masses).scale(dt);
+    simulation.state = state.add_scaled(1.0 / 6.0,
+        &k1.add_scaled(2.0, &k2).add_scaled(2.0, &k3).add(&k4)
+    )
+}
+
+/*fn euler(simulation: &mut Simulation, dt: f32) {
+    simulation.state = simulation.state.add_scaled(dt, &state_derivative(&simulation.state, &simulation.masses));
+}*/
+
 fn step(simulation: &mut Simulation, dt: f32) {
-    euler(simulation, dt);
+    //euler(simulation, dt);
+    rk4(simulation, dt);
 }
 
 // computes the velocities needed to maintain orbits
@@ -187,7 +216,7 @@ fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
     let mut cm = Vec2::zero();
     for (p, m) in simulation.state.positions.iter().zip(simulation.masses.iter()) {
         mass += m;
-        cm = cm.add(p.scale(*m));
+        cm = cm.add(&p.scale(*m));
     }
     cm = cm.scale(1.0 / mass);
 

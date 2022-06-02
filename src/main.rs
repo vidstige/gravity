@@ -54,7 +54,7 @@ impl Vec2<f32> {
     fn add(self, rhs: &Vec2<f32>) -> Self {
         Vec2{x: self.x + rhs.x, y: self.y + rhs.y}
     }
-    fn sub(self, rhs: Vec2<f32>) -> Self {
+    fn sub(self, rhs: &Vec2<f32>) -> Self {
         Vec2{x: self.x - rhs.x, y: self.y - rhs.y}
     }
     fn scale(self, rhs: f32) -> Self {
@@ -88,11 +88,12 @@ impl BBox2 {
     fn bottom(&self) -> f32 { self.bottom_right.y }
     fn right(&self) -> f32 { self.bottom_right.x }
     
-    fn diagonal(&self) -> Vec2<f32> { self.bottom_right.sub(self.top_left) }
+    fn diagonal(&self) -> Vec2<f32> { self.bottom_right.sub(&self.top_left) }
 
+    // TODO: change back to open..closed interval (needs to extend bbox on creation to bottom_right by epsilon)
     fn contains(self, p: &Vec2<f32>) -> bool {
-        p.x >= self.top_left.x && p.y < self.bottom_right.x &&
-        p.y >= self.top_left.y && p.y < self.bottom_right.y
+        p.x >= self.top_left.x && p.y <= self.bottom_right.x &&
+        p.y >= self.top_left.y && p.y <= self.bottom_right.y
     }
     fn center(&self) -> Vec2<f32> {
         self.top_left.add(&self.bottom_right).scale(0.5)
@@ -117,21 +118,8 @@ fn bbox(points: &Vec<Vec2<f32>>) -> BBox2 {
 
 struct Node {
     bbox: BBox2,
-    value: Option<(Vec2<f32>, f32)>,
-    cm: Vec2<f32>,
-    mass: f32,
+    value: (Vec2<f32>, f32),
     children: Vec<Node>,
-}
-impl Node {
-    fn empty(bbox: &BBox2) -> Node {
-        Node {
-            bbox: *bbox,
-            value: None,
-            cm: Vec2::zero(),
-            mass: 0.0,
-            children: vec!(),
-        }
-    }
 }
 
 // returns the four quads of a bounding box
@@ -145,64 +133,47 @@ fn quads(bbox: &BBox2) -> [BBox2; 4] {
     ]
 }
 
-impl Node {
-    fn insert(&mut self, p: &Vec2<f32>, m: f32) {
-        if self.value.is_none() {
-            // free node -> insert        
-            self.value = Some((*p, m));
-        } else {
-            // expand node if needed
-            if self.children.len() == 0 {
-                self.children = quads(&self.bbox).iter().map(Node::empty).collect();
-            }
-            for child in &mut self.children {
-                if child.bbox.contains(p) {
-                    child.insert(p, m);
-                }
-            }
-        }
+fn center_of_mass(items: &Vec<(Vec2<f32>, f32)>) -> (Vec2<f32>, f32) {
+    let mut center = Vec2::zero();
+    let mut mass = 0.0;
+    for (p, m) in items {
+        center = center.add(p);
+        mass += m;
     }
-    // recursively update center of mass of all nodes
-    fn update_center_of_mass(&mut self) -> (Vec2<f32>, f32) {
-        let mut cm = Vec2::zero();
-        let mut mass: f32 = 0.0;
-        // add own center of mass
-        if let Some((p, m)) = self.value {
-            cm = cm.add(&p);
-            mass += m;
+    (center.scale(1.0 / mass), mass)
+}
+
+impl Node {
+    fn create(bbox: &BBox2, items: &Vec<(Vec2<f32>, f32)>) -> Node {
+        assert_ne!(items.len(), 0);
+        if items.len() == 1 {
+            return Node{bbox: *bbox, value: items[0], children: vec!()};
         }
-        for child in &mut self.children.iter_mut() {
-            let (child_cm, child_mass) = child.update_center_of_mass();
-            cm = cm.add(&child_cm);
-            mass += child_mass;
+        let mut childen = vec!();
+        for quad in quads(bbox) {
+            let inside: Vec<_> = items.iter().map(|x| *x).filter(|item| quad.contains(&item.0)).collect();
+            if inside.len() > 0 {
+                childen.push(Node::create(&quad, &inside));
+            }
         }
-        self.cm = cm.scale(1.0 / mass);
-        self.mass = mass;
-        (self.cm, self.mass)
+        return Node{bbox: *bbox, value: center_of_mass(items), children: childen};
     }
     // find all contributions for a point and threshold (theta)
     fn contributions(&self, p: Vec2<f32>, theta: f32) -> Vec<(Vec2<f32>, f32)> {
-        let delta = p.sub(self.cm);
+        let delta = p.sub(&self.value.0);
         let d2 = delta.norm2();
         let diagonal = self.bbox.diagonal();
         let s2 = diagonal.x * diagonal.y;
         // compare squared values to avoid sqrt as well as making it convenient to use both width and height of node
-        let mut tmp = vec!();
-        if s2 / d2 < theta * theta {
-            tmp.push((self.cm, self.mass));
-        } else {
-                        
+        if self.children.len() == 0 || s2 / d2 < theta * theta {
+            return vec!(self.value);
         }
-        tmp
+        return self.children.iter().flat_map(|node| node.contributions(p, theta)).collect();
     }
 }
 fn create_tree(positions: &Vec<Vec2<f32>>, masses: &Vec<f32>) -> Node {
-    let mut root = Node::empty(&bbox(positions));
-    for (p, m) in positions.iter().zip(masses.iter()) {
-        root.insert(p, *m);
-    }
-    root.update_center_of_mass();
-    return root;
+    let items: Vec<_> = positions.iter().map(|x| *x).zip(masses.iter().map(|x| *x)).collect();
+    Node::create(&bbox(positions), &items)
 }
 
 struct Zoom {
@@ -282,41 +253,47 @@ impl Simulation {
         let mut potential = 0.0;
         for i in 0..self.state.positions.len() - 1 {
             for j in i+1..self.state.positions.len() {
-                potential += -G * self.masses[i] * self.masses[j] / self.state.positions[i].sub(self.state.positions[j]).norm2().sqrt();
+                potential += -G * self.masses[i] * self.masses[j] / self.state.positions[i].sub(&self.state.positions[j]).norm2().sqrt();
             }
         }
         kinetic + potential
     }
 }
 
+// Computes gravity force acting on (pi, mi) by (pj, mj) and reverse. This force is symetric
+fn gravity(pi: &Vec2<f32>, pj: &Vec2<f32>, mi: f32, mj: f32) -> (Vec2<f32>, Vec2<f32>) {
+    let delta = pi.sub(pj);
+    let r2 = delta.norm2();
+    let f = G * mi * mj / r2;  // gravity force
+    let r = r2.sqrt();
+    (delta.scale(-f / r), delta.scale(f / r))
+}
+
 // approximate gravity
 fn gravity_barnes_hut(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
+    let theta = 0.0;
     let tree = create_tree(&state.positions, m);
     for i in 0..state.len() {
-                
+        for (p, m) in tree.contributions(state.positions[i], theta) {
+        }
     }
     vec!()
 }
 
-fn gravity(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
+fn gravity_direct(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
     let mut forces: Vec<Vec2<f32>> = state.positions.iter().map(|_| Vec2::zero()).collect();
     for i in 0..state.len()-1 {
         for j in i+1..state.len() {
-            let pi = state.positions[i];
-            let pj = state.positions[j];
-            let delta = pi.sub(pj);
-            let r2 = delta.norm2();
-            let f = G * m[i] * m[j] / r2;  // gravity force
-            let r = r2.sqrt();
-            forces[i] = forces[i].add(&delta.scale(-f / r));
-            forces[j] = forces[j].add(&delta.scale(f / r));
+            let (fi, fj) = gravity(&state.positions[i], &state.positions[j], m[i], m[j]);
+            forces[i] = forces[i].add(&fi);
+            forces[j] = forces[j].add(&fj);
         }
     }
     forces
 }
 
 fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
-    let forces = gravity(&state, masses);
+    let forces = gravity_direct(&state, masses);
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
 }
 
@@ -361,7 +338,7 @@ fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
     cm = cm.scale(1.0 / mass);
 
     simulation.state.positions.iter().map(|p| {
-        let delta = p.sub(cm);
+        let delta = p.sub(&cm);
         let r = delta.norm2().sqrt();
         let vo = (G * mass / r).sqrt();
         delta.cross().scale(vo / r)

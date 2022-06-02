@@ -137,7 +137,7 @@ fn gravity_forces(stars: &Vec<Star>) -> Vec<Vec2<f32>> {
     forces
 }
 
-const G: f32 = 0.001;
+const G: f32 = 0.01;
 fn step(stars: &mut Vec<Star>, dt: f32) {
     let forces = gravity_forces(stars);
     for i in 0..stars.len() {
@@ -182,9 +182,9 @@ fn main() -> std::result::Result<(), std::io::Error> {
             sampler.next().unwrap() as f32,
             sampler.next().unwrap() as f32,
         );
-        stars.push(Star{p: p, v: Vec2::zero(), m: 2.0});
+        stars.push(Star{p: p, v: Vec2::zero(), m: 0.1});
     }
-    stars.push(Star{p: Vec2::zero(), v: Vec2::zero(), m: 100.0});
+    stars.push(Star{p: Vec2::zero(), v: Vec2::zero(), m: 10.0});
     oribtal_velocity(&mut stars);
 
     let dt = 1.0 / FPS as f32;

@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::{thread, time};
 use std::collections::VecDeque;
-use  std::f64::consts::TAU;
+use std::f64::consts::TAU;
 
 type Resolution = (usize, usize);
 
@@ -70,6 +70,92 @@ impl Vec2<f32> {
 
 fn add_scaled(first: &Vec<Vec2<f32>>, k: f32, second: &Vec<Vec2<f32>>) -> Vec<Vec2<f32>> {
     first.iter().zip(second.iter()).map(|(a, b)| a.add(&b.scale(k))).collect()
+}
+
+// quadtree
+#[derive(Clone, Copy)]
+struct BBox2 {
+    top_left: Vec2<f32>,
+    bottom_right: Vec2<f32>,
+}
+
+impl BBox2 {
+    fn new(top_left: Vec2<f32>, bottom_right: Vec2<f32>) -> BBox2 {
+        BBox2{top_left: top_left, bottom_right: bottom_right}
+    }
+    fn top(&self) -> f32 { self.top_left.y }
+    fn left(&self) -> f32 { self.top_left.x }
+    fn bottom(&self) -> f32 { self.bottom_right.y }
+    fn right(&self) -> f32 { self.bottom_right.x }
+
+    fn contains(self, p: &Vec2<f32>) -> bool {
+        p.x >= self.top_left.x && p.y < self.bottom_right.x &&
+        p.y >= self.top_left.y && p.y < self.bottom_right.y
+    }
+    fn center(&self) -> Vec2<f32> {
+        self.top_left.add(&self.bottom_right).scale(0.5)
+    }
+}
+
+fn bbox(points: &Vec<Vec2<f32>>) -> BBox2 {
+    let xs: Vec<_> = points.iter().map(|p| p.x).collect();
+    let ys: Vec<_> = points.iter().map(|p| p.y).collect();
+    
+    BBox2 {
+        top_left: Vec2{
+            x: xs.iter().fold(f32::INFINITY, |a, &b| a.min(b)),
+            y: ys.iter().fold(f32::INFINITY, |a, &b| a.min(b)),
+        },
+        bottom_right: Vec2{
+            x: xs.iter().fold(-f32::INFINITY, |a, &b| a.max(b)),
+            y: ys.iter().fold(-f32::INFINITY, |a, &b| a.max(b)),
+        },
+    }
+}
+
+struct Node {
+    bbox: BBox2,
+    value: Option<(Vec2<f32>, f32)>,
+    children: Vec<Node>,
+}
+impl Node {
+    fn empty(bbox: &BBox2) -> Node {
+        Node {
+            bbox: *bbox,
+            value: None,
+            children: vec!(),
+        }
+    }
+}
+
+// returns the four quads of a bounding box
+fn quads(bbox: &BBox2) -> [BBox2; 4] {
+    let center = bbox.center();
+    [
+        BBox2::new(bbox.top_left, center),  // top left
+        BBox2::new(Vec2{x: center.x, y: bbox.top()}, Vec2{x: bbox.right(), y: center.y}), // top right
+        BBox2::new(Vec2{x: bbox.left(), y: center.y}, Vec2{x: center.x, y: bbox.bottom()}), // bottom left
+        BBox2::new(center, bbox.bottom_right), // bottom right
+    ]
+}
+
+impl Node {
+    fn insert(&mut self, p: &Vec2<f32>, m: f32) {
+        if self.value.is_none() {
+            // free node -> insert        
+            self.value = Some((*p, m));
+        } else {
+            // expand node if needed
+            if self.children.len() == 0 {
+                self.children = quads(&self.bbox).iter().map(Node::empty).collect();
+            }
+            for child in &mut self.children {
+                if child.bbox.contains(p) {
+                    child.insert(p, m);
+                }
+            }
+        }
+    }
 }
 
 struct Zoom {
@@ -259,6 +345,10 @@ fn main() -> std::result::Result<(), std::io::Error> {
     // add black hole
     simulation.add(Vec2::zero(), Vec2::zero(), 22.0);
     
+    let mut root = Node::empty(&bbox(&simulation.state.positions));
+    for (p, m) in simulation.state.positions.iter().zip(simulation.masses.iter()) {
+        root.insert(p, *m);
+    }
 
     let dt = 1.0 / FPS as f32;
     let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();

@@ -90,10 +90,9 @@ impl BBox2 {
     
     fn diagonal(&self) -> Vec2<f32> { self.bottom_right.sub(&self.top_left) }
 
-    // TODO: change back to open..closed interval (needs to extend bbox on creation to bottom_right by epsilon)
     fn contains(self, p: &Vec2<f32>) -> bool {
-        p.x >= self.top_left.x && p.y <= self.bottom_right.x &&
-        p.y >= self.top_left.y && p.y <= self.bottom_right.y
+        p.x >= self.top_left.x && p.x < self.bottom_right.x &&
+        p.y >= self.top_left.y && p.y < self.bottom_right.y
     }
     fn center(&self) -> Vec2<f32> {
         self.top_left.add(&self.bottom_right).scale(0.5)
@@ -110,8 +109,8 @@ fn bbox(points: &Vec<Vec2<f32>>) -> BBox2 {
             y: ys.iter().fold(f32::INFINITY, |a, &b| a.min(b)),
         },
         bottom_right: Vec2{
-            x: xs.iter().fold(-f32::INFINITY, |a, &b| a.max(b)),
-            y: ys.iter().fold(-f32::INFINITY, |a, &b| a.max(b)),
+            x: xs.iter().fold(-f32::INFINITY, |a, &b| a.max(b)) + std::f32::EPSILON,
+            y: ys.iter().fold(-f32::INFINITY, |a, &b| a.max(b)) + std::f32::EPSILON,
         },
     }
 }
@@ -145,7 +144,7 @@ fn center_of_mass(items: &Vec<(Vec2<f32>, f32)>) -> (Vec2<f32>, f32) {
 
 impl Node {
     fn create(bbox: &BBox2, items: &Vec<(Vec2<f32>, f32)>) -> Node {
-        assert_ne!(items.len(), 0);
+        assert_ne!(items.len(), 0, "Can't create empty node");
         if items.len() == 1 {
             return Node{bbox: *bbox, value: items[0], children: vec!()};
         }
@@ -165,7 +164,7 @@ impl Node {
         let diagonal = self.bbox.diagonal();
         let s2 = diagonal.x * diagonal.y;
         // compare squared values to avoid sqrt as well as making it convenient to use both width and height of node
-        if self.children.len() == 0 || s2 / d2 < theta * theta {
+        if self.children.len() == 0 || s2 / d2 < theta * theta{
             return vec!(self.value);
         }
         return self.children.iter().flat_map(|node| node.contributions(p, theta)).collect();
@@ -264,20 +263,26 @@ impl Simulation {
 fn gravity(pi: &Vec2<f32>, pj: &Vec2<f32>, mi: f32, mj: f32) -> (Vec2<f32>, Vec2<f32>) {
     let delta = pi.sub(pj);
     let r2 = delta.norm2();
+    // TODO: handle same point interaction better here
+    if r2.abs() < std::f32::EPSILON {
+        return (Vec2::zero(), Vec2::zero());
+    }
     let f = G * mi * mj / r2;  // gravity force
     let r = r2.sqrt();
     (delta.scale(-f / r), delta.scale(f / r))
 }
 
 // approximate gravity
-fn gravity_barnes_hut(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
-    let theta = 0.0;
-    let tree = create_tree(&state.positions, m);
+fn gravity_barnes_hut(state: &State, masses: &Vec<f32>, theta: f32) -> Vec<Vec2<f32>> {
+    let mut forces: Vec<Vec2<f32>> = state.positions.iter().map(|_| Vec2::zero()).collect();
+    let tree = create_tree(&state.positions, masses);
     for i in 0..state.len() {
         for (p, m) in tree.contributions(state.positions[i], theta) {
+            let (fi, _) = gravity(&state.positions[i], &p, masses[i], m);
+            forces[i] = forces[i].add(&fi);
         }
     }
-    vec!()
+    forces
 }
 
 fn gravity_direct(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
@@ -293,7 +298,8 @@ fn gravity_direct(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
 }
 
 fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
-    let forces = gravity_direct(&state, masses);
+    //let forces = gravity_direct(&state, masses);
+    let forces = gravity_barnes_hut(&state, masses, 0.5);
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
 }
 
@@ -309,13 +315,13 @@ fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<(f32, f32
 }
 
 fn step(simulation: &mut Simulation, dt: f32) {
-    //let euler = vec!(Vec2::make(1.0, 1.0));
+    let euler = vec!((1.0, 1.0));
     //let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
-    let ruth3 = vec!(
+    /*let ruth3 = vec!(
         (2.0/3.0, 7.0/24.0),
         (-2.0/3.0, 0.75),
         (1.0, -1.0/24.0),
-    );
+    );*/
     /*let c = (2.0 as f32).powf(1.0 / 3.0);
     let ruth4 = vec!(
         (0.5 / (2.0 - c), 0.0),
@@ -323,7 +329,7 @@ fn step(simulation: &mut Simulation, dt: f32) {
         (0.5*(1.0-c)/ (2.0 - c), -c/ (2.0 - c)),
         (0.5/ (2.0 - c), 1.0/ (2.0 - c)),
     );*/
-    simulation.state = symplectic_step(simulation, dt, &ruth3);
+    simulation.state = symplectic_step(simulation, dt, &euler);
 }
 
 // computes the velocities needed to maintain orbits
@@ -380,7 +386,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
 
     let dt = 1.0 / FPS as f32;
     let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();
-    const STEPS: usize = 4;  // steps per frame
+    const STEPS: usize = 1;  // steps per frame
     for _ in 0..250 {
         for _ in 0..STEPS {        
             step(&mut simulation, dt / STEPS as f32);

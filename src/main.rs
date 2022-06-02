@@ -168,6 +168,14 @@ impl Node {
         (cm, mass)
     }
 }
+fn create_tree(positions: &Vec<Vec2<f32>>, masses: &Vec<f32>) -> Node {
+    let mut root = Node::empty(&bbox(positions));
+    for (p, m) in positions.iter().zip(masses.iter()) {
+        root.insert(p, *m);
+    }
+    root.update_center_of_mass();
+    return root;
+}
 
 struct Zoom {
     center: Vec2<f32>,
@@ -356,11 +364,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
     // add black hole
     simulation.add(Vec2::zero(), Vec2::zero(), 22.0);
     
-    let mut root = Node::empty(&bbox(&simulation.state.positions));
-    for (p, m) in simulation.state.positions.iter().zip(simulation.masses.iter()) {
-        root.insert(p, *m);
-    }
-    root.update_center_of_mass();
+    let tree = create_tree(&simulation.state.positions, &simulation.masses);
 
     let dt = 1.0 / FPS as f32;
     let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();

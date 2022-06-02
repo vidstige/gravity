@@ -2,6 +2,7 @@ use std::io::Write;
 use std::{thread, time};
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
+use std::time::Instant;
 
 type Resolution = (usize, usize);
 
@@ -388,15 +389,17 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();
     const STEPS: usize = 1;  // steps per frame
     for _ in 0..250 {
+        let t0 = Instant::now();
         for _ in 0..STEPS {        
             step(&mut simulation, dt / STEPS as f32);
         }
+        let duration = t0.elapsed();
         add_points(&mut trails, &simulation.state.positions, 10);
         clear(&mut frame);
         draw(&mut frame, &trails, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
-        thread::sleep(time::Duration::from_secs_f32(dt));
-        eprintln!("E={}", simulation.energy());
+        thread::sleep(time::Duration::from_secs_f32(dt) - duration);
+        eprintln!("E={}, physics={}ms", simulation.energy(), duration.as_millis());
     }
     Ok(())
 }

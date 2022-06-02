@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::{thread, time};
 use std::collections::VecDeque;
-use probability::prelude::*;
+use  std::f64::consts::TAU;
 
 type Resolution = (usize, usize);
 
@@ -226,19 +226,23 @@ fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
     }).collect()
 }
 
-fn galaxy() -> Vec<(Vec2<f32>, f32)> {
-    let mut source = source::default().seed([1, 99]);
+fn galaxy(n: usize, radius: f32) -> Vec<Vec2<f32>> {
+    /*let mut source = source::default().seed([1, 99]);
     let distribution = Gaussian::new(0.0, 1.0);
     let mut sampler = Independent(&distribution, &mut source);
     let mut positions = vec!();
-    for _ in 0..100 {
+    for _ in 0..n {
         let position = Vec2::make(
             sampler.next().unwrap() as f32,
             sampler.next().unwrap() as f32,
         );
         positions.push((position, 0.1));
     }
-    positions
+    positions*/
+    let inner = 0.2 * radius;
+    let arms = 15.0;
+    let parameters: Vec<(f32, f32)> = (0..n).map(|i| i as f32 / n as f32).map(|t| (arms * t * TAU as f32, inner + t * (radius - inner))).collect();
+    parameters.iter().map(|(a, r)| Vec2::make(r * a.cos(), r * a.sin())).collect()
 }
 
 const FPS: f32 = 30.0;
@@ -248,8 +252,8 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let mut simulation = Simulation::new();
 
     // add stars
-    for (p, m) in galaxy() {
-        simulation.add(p, Vec2::zero(), m);
+    for p in galaxy(200, 5.0) {
+        simulation.add(p, Vec2::zero(), 0.1);
     }
     simulation.state.velocities = oribtal_velocity(&simulation);
     // add black hole

@@ -191,8 +191,20 @@ fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<(f32, f32
 
 fn step(simulation: &mut Simulation, dt: f32) {
     //let euler = vec!(Vec2::make(1.0, 1.0));
-    let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
-    simulation.state = symplectic_step(simulation, dt, &leap2);
+    //let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
+    let ruth3 = vec!(
+        (2.0/3.0, 7.0/24.0),
+        (-2.0/3.0, 0.75),
+        (1.0, -1.0/24.0),
+    );
+    /*let c = (2.0 as f32).powf(1.0 / 3.0);
+    let ruth4 = vec!(
+        (0.5 / (2.0 - c), 0.0),
+        (0.5*(1.0-c)/ (2.0 - c), 1.0/ (2.0 - c)),
+        (0.5*(1.0-c)/ (2.0 - c), -c/ (2.0 - c)),
+        (0.5/ (2.0 - c), 1.0/ (2.0 - c)),
+    );*/
+    simulation.state = symplectic_step(simulation, dt, &ruth3);
 }
 
 // computes the velocities needed to maintain orbits

@@ -118,7 +118,15 @@ impl State {
     fn len(&self) -> usize {
         self.positions.len()
     }
+    // scales a paramter state and adds to this
+    fn add_scaled(&self, k: f32, other: State) -> Self {
+        State {
+            positions: self.positions.iter().zip(other.positions.iter()).map(|(a, b)| a.add(b.scale(k))).collect(),
+            velocities: self.velocities.iter().zip(other.velocities.iter()).map(|(a, b)| a.add(b.scale(k))).collect(),
+        }
+    }
 }
+
 const G: f32 = 0.01;
 struct Simulation {
     state: State,
@@ -158,14 +166,18 @@ fn gravity(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
     forces
 }
 
-fn step(simulation: &mut Simulation, dt: f32) {
+fn euler(simulation: &mut Simulation, dt: f32) {
     let forces = gravity(&simulation.state, &simulation.masses);
-    for i in 0..simulation.masses.len() {
-        let force = forces[i];
-        let acceleration = force.scale(1.0 / simulation.masses[i]);
-        simulation.state.positions[i] = simulation.state.positions[i].add(simulation.state.velocities[i].scale(dt));
-        simulation.state.velocities[i] = simulation.state.velocities[i].add(acceleration.scale(dt));
-    }
+    let accelerations = forces.iter().zip(simulation.masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect();
+    let delta_state = State {
+        positions: simulation.state.velocities.clone(),
+        velocities: accelerations,
+    };
+    simulation.state = simulation.state.add_scaled(dt, delta_state);
+}
+
+fn step(simulation: &mut Simulation, dt: f32) {
+    euler(simulation, dt);
 }
 
 // computes the velocities needed to maintain orbits

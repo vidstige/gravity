@@ -226,6 +226,21 @@ fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
     }).collect()
 }
 
+fn galaxy() -> Vec<(Vec2<f32>, f32)> {
+    let mut source = source::default().seed([1, 99]);
+    let distribution = Gaussian::new(0.0, 1.0);
+    let mut sampler = Independent(&distribution, &mut source);
+    let mut positions = vec!();
+    for _ in 0..100 {
+        let position = Vec2::make(
+            sampler.next().unwrap() as f32,
+            sampler.next().unwrap() as f32,
+        );
+        positions.push((position, 0.1));
+    }
+    positions
+}
+
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
     let mut frame = Frame::new((506, 253));
@@ -233,18 +248,13 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let mut simulation = Simulation::new();
 
     // add stars
-    let mut source = source::default().seed([1, 99]);
-    let distribution = Gaussian::new(0.0, 1.0);
-    let mut sampler = Independent(&distribution, &mut source);
-    for _ in 0..100 {
-        let position = Vec2::make(
-            sampler.next().unwrap() as f32,
-            sampler.next().unwrap() as f32,
-        );
-        simulation.add(position, Vec2::zero(), 0.1);
+    for (p, m) in galaxy() {
+        simulation.add(p, Vec2::zero(), m);
     }
-    simulation.add(Vec2::zero(), Vec2::zero(), 10.0);
     simulation.state.velocities = oribtal_velocity(&simulation);
+    // add black hole
+    //simulation.add(Vec2::zero(), Vec2::zero(), 10.0);
+    
 
     let dt = 1.0 / FPS as f32;
     let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();

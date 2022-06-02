@@ -38,8 +38,16 @@ impl Vec2<f32> {
         Vec2{x: self.x * rhs, y: self.y * rhs}
     }
     fn norm2(self) -> f32 {
-        return self.x * self.x + self.y * self.y;
+        self.x * self.x + self.y * self.y
     }
+    fn cross(self) -> Self {
+        Vec2{x: -self.y, y: self.x}
+    }
+}
+
+fn normalize(v: &Vec2<f32>) -> Vec2<f32> {
+    let n = v.norm2().sqrt();
+    v.scale(1.0 / n)
 }
 
 struct Star {
@@ -67,7 +75,7 @@ impl Zoom {
 struct Color {
     r: u8, g: u8, b: u8, a: u8,
 }
-const WHITE: Color = Color {r: 255, g: 255, b: 255, a: 128};
+const WHITE: Color = Color {r: 255, g: 255, b: 255, a: 255};
 
 fn draw_pixel(frame: &mut Frame, x: usize, y: usize, color: Color) {
     let (width, _) = frame.resolution;
@@ -126,24 +134,23 @@ fn step(stars: &mut Vec<Star>, dt: f32) {
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
     let mut frame = Frame::new((506, 253));
-    let zoom = Zoom{center: Vec2::zero(), scale: 100.0, resolution: frame.resolution};
+    let zoom = Zoom{center: Vec2::zero(), scale: 150.0, resolution: frame.resolution};
     let mut stars: Vec<Star> = vec!();
     let mut rng = rand::thread_rng();
-    for _ in 0..10 {
+    for _ in 0..100 {
         let p = Vec2::make(
             rng.gen::<f32>() - 0.5,
             rng.gen::<f32>() - 0.5,
         );
-        stars.push(Star{p: p, v: Vec2::zero(), m: 1.0});
+        let v = normalize(&p.cross()).scale(0.1);
+        stars.push(Star{p: p, v: v, m: 0.1});
     }
 
     let dt = 1.0 / FPS as f32;
-    //loop {
-    for _ in 0..100 {
+    loop {
         step(&mut stars, dt);
         draw(&mut frame, &stars, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
         thread::sleep(time::Duration::from_secs_f32(dt));
     }
-    Ok(())
 }

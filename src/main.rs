@@ -87,6 +87,8 @@ impl BBox2 {
     fn left(&self) -> f32 { self.top_left.x }
     fn bottom(&self) -> f32 { self.bottom_right.y }
     fn right(&self) -> f32 { self.bottom_right.x }
+    
+    fn diagonal(&self) -> Vec2<f32> { self.bottom_right.sub(self.top_left) }
 
     fn contains(self, p: &Vec2<f32>) -> bool {
         p.x >= self.top_left.x && p.y < self.bottom_right.x &&
@@ -116,6 +118,8 @@ fn bbox(points: &Vec<Vec2<f32>>) -> BBox2 {
 struct Node {
     bbox: BBox2,
     value: Option<(Vec2<f32>, f32)>,
+    cm: Vec2<f32>,
+    mass: f32,
     children: Vec<Node>,
 }
 impl Node {
@@ -123,6 +127,8 @@ impl Node {
         Node {
             bbox: *bbox,
             value: None,
+            cm: Vec2::zero(),
+            mass: 0.0,
             children: vec!(),
         }
     }
@@ -160,12 +166,34 @@ impl Node {
     fn update_center_of_mass(&mut self) -> (Vec2<f32>, f32) {
         let mut cm = Vec2::zero();
         let mut mass: f32 = 0.0;
+        // add own center of mass
+        if let Some((p, m)) = self.value {
+            cm = cm.add(&p);
+            mass += m;
+        }
         for child in &mut self.children.iter_mut() {
             let (child_cm, child_mass) = child.update_center_of_mass();
             cm = cm.add(&child_cm);
             mass += child_mass;
         }
-        (cm, mass)
+        self.cm = cm.scale(1.0 / mass);
+        self.mass = mass;
+        (self.cm, self.mass)
+    }
+    // find all contributions for a point and threshold (theta)
+    fn contributions(&self, p: Vec2<f32>, theta: f32) -> Vec<(Vec2<f32>, f32)> {
+        let delta = p.sub(self.cm);
+        let d2 = delta.norm2();
+        let diagonal = self.bbox.diagonal();
+        let s2 = diagonal.x * diagonal.y;
+        // compare squared values to avoid sqrt as well as making it convenient to use both width and height of node
+        let mut tmp = vec!();
+        if s2 / d2 < theta * theta {
+            tmp.push((self.cm, self.mass));
+        } else {
+                        
+        }
+        tmp
     }
 }
 fn create_tree(positions: &Vec<Vec2<f32>>, masses: &Vec<f32>) -> Node {
@@ -259,6 +287,15 @@ impl Simulation {
         }
         kinetic + potential
     }
+}
+
+// approximate gravity
+fn gravity_barnes_hut(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
+    let tree = create_tree(&state.positions, m);
+    for i in 0..state.len() {
+                
+    }
+    vec!()
 }
 
 fn gravity(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
@@ -363,8 +400,6 @@ fn main() -> std::result::Result<(), std::io::Error> {
     simulation.state.velocities = oribtal_velocity(&simulation);
     // add black hole
     simulation.add(Vec2::zero(), Vec2::zero(), 22.0);
-    
-    let tree = create_tree(&simulation.state.positions, &simulation.masses);
 
     let dt = 1.0 / FPS as f32;
     let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();

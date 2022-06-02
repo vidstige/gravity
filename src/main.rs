@@ -26,6 +26,18 @@ fn clear(frame: &mut Frame) {
     }
 }
 
+fn draw_pixel(frame: &mut Frame, x: usize, y: usize, color: Color) {
+    let (width, _) = frame.resolution;
+    let bpp = 4;
+    let stride = width * bpp;
+    let index = y * stride + x * bpp;
+    frame.pixels[index + 0] = color.r;
+    frame.pixels[index + 1] = color.g;
+    frame.pixels[index + 2] = color.b;
+    frame.pixels[index + 3] = color.a;
+}
+
+
 #[derive(Clone, Copy)]
 struct Vec2<T> {
     x: T,
@@ -78,17 +90,6 @@ impl Zoom {
     }
 }
 
-fn draw_pixel(frame: &mut Frame, x: usize, y: usize, color: Color) {
-    let (width, _) = frame.resolution;
-    let bpp = 4;
-    let stride = width * bpp;
-    let index = y * stride + x * bpp;
-    frame.pixels[index + 0] = color.r;
-    frame.pixels[index + 1] = color.g;
-    frame.pixels[index + 2] = color.b;
-    frame.pixels[index + 3] = color.a;
-}
-
 fn inside(p: Vec2<f32>, resolution: Resolution) -> bool {
     let (width, height) = resolution;
     p.x >= 0.0 && p.x < width as f32 && p.y >= 0.0 && p.y < height as f32
@@ -115,6 +116,7 @@ fn draw(frame: &mut Frame, trails: &Vec<Trail>, zoom: &Zoom) {
     }
 }
 
+const G: f32 = 0.01;
 fn gravity_forces(stars: &Vec<Star>) -> Vec<Vec2<f32>> {
     let mut forces: Vec<Vec2<f32>> = stars.iter().map(|_| Vec2::zero()).collect();
     for i in 0..stars.len()-1 {
@@ -132,7 +134,6 @@ fn gravity_forces(stars: &Vec<Star>) -> Vec<Vec2<f32>> {
     forces
 }
 
-const G: f32 = 0.01;
 fn step(stars: &mut Vec<Star>, dt: f32) {
     let forces = gravity_forces(stars);
     for i in 0..stars.len() {

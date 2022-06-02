@@ -156,6 +156,17 @@ impl Node {
             }
         }
     }
+    // recursively update center of mass of all nodes
+    fn update_center_of_mass(&mut self) -> (Vec2<f32>, f32) {
+        let mut cm = Vec2::zero();
+        let mut mass: f32 = 0.0;
+        for child in &mut self.children.iter_mut() {
+            let (child_cm, child_mass) = child.update_center_of_mass();
+            cm = cm.add(&child_cm);
+            mass += child_mass;
+        }
+        (cm, mass)
+    }
 }
 
 struct Zoom {
@@ -349,6 +360,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
     for (p, m) in simulation.state.positions.iter().zip(simulation.masses.iter()) {
         root.insert(p, *m);
     }
+    root.update_center_of_mass();
 
     let dt = 1.0 / FPS as f32;
     let mut trails = simulation.masses.iter().map(|_| VecDeque::new()).collect();

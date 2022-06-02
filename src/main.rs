@@ -165,7 +165,7 @@ impl Node {
         let diagonal = self.bbox.diagonal();
         let s2 = diagonal.x * diagonal.y;
         // compare squared values to avoid sqrt as well as making it convenient to use both width and height of node
-        if self.children.len() == 0 || s2 / d2 < theta * theta{
+        if self.children.len() == 0 || s2 / d2 < theta * theta {
             return vec!(self.value);
         }
         return self.children.iter().flat_map(|node| node.contributions(p, theta)).collect();
@@ -398,7 +398,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
         clear(&mut frame);
         draw(&mut frame, &trails, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
-        thread::sleep(time::Duration::from_secs_f32(dt) - duration);
+        thread::sleep(time::Duration::from_secs_f32(dt).saturating_sub(duration));
         eprintln!("E={}, physics={}ms", simulation.energy(), duration.as_millis());
     }
     Ok(())

@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::{thread, time};
-use rand::Rng;
+use std::collections::VecDeque;
+use probability::prelude::*;
 
 type Resolution = (usize, usize);
 
@@ -12,6 +13,16 @@ struct Frame {
 impl Frame {
     fn new((width, height): Resolution) -> Self {
         Frame{resolution: (width, height), pixels: vec![0; width * height * 4]}
+    }
+}
+struct Color {
+    r: u8, g: u8, b: u8, a: u8,
+}
+const WHITE: Color = Color {r: 255, g: 255, b: 255, a: 255};
+
+fn clear(frame: &mut Frame) {
+    for pixel in &mut frame.pixels {
+        *pixel = 0;
     }
 }
 
@@ -63,7 +74,7 @@ struct Zoom {
 }
 
 impl Zoom {
-    fn to_screen(&self, world: Vec2<f32>) -> Vec2<f32> {
+    fn to_screen(&self, world: &Vec2<f32>) -> Vec2<f32> {
         let (width, height) = self.resolution;
         Vec2::make(
             0.5 * width as f32 + self.scale * world.x,
@@ -71,11 +82,6 @@ impl Zoom {
         )
     }
 }
-
-struct Color {
-    r: u8, g: u8, b: u8, a: u8,
-}
-const WHITE: Color = Color {r: 255, g: 255, b: 255, a: 255};
 
 fn draw_pixel(frame: &mut Frame, x: usize, y: usize, color: Color) {
     let (width, _) = frame.resolution;
@@ -93,11 +99,23 @@ fn inside(p: Vec2<f32>, resolution: Resolution) -> bool {
     p.x >= 0.0 && p.x < width as f32 && p.y >= 0.0 && p.y < height as f32
 }
 
-fn draw(frame: &mut Frame, stars: &Vec<Star>, zoom: &Zoom) {
-    for star in stars {
-        let screen = zoom.to_screen(star.p);
-        if inside(screen, frame.resolution) {
-            draw_pixel(frame, screen.x as usize, screen.y as usize, WHITE);
+type Trail = VecDeque<Vec2<f32>>;
+fn add_points(trails: &mut Vec<Trail>, points: Vec<Vec2<f32>>, length: usize) {
+    for i in 0..points.len() {
+        trails[i].push_back(points[i]);
+        while trails[i].len() > length {
+            trails[i].pop_front();
+        }
+    }
+}
+
+fn draw(frame: &mut Frame, trails: &Vec<Trail>, zoom: &Zoom) {
+    for trail in trails {
+        for p in trail {
+            let screen = zoom.to_screen(p);
+            if inside(screen, frame.resolution) {
+                draw_pixel(frame, screen.x as usize, screen.y as usize, WHITE);
+            }
         }
     }
 }
@@ -119,7 +137,7 @@ fn gravity_forces(stars: &Vec<Star>) -> Vec<Vec2<f32>> {
     forces
 }
 
-const G: f32 = 0.001;
+const G: f32 = 0.01;
 fn step(stars: &mut Vec<Star>, dt: f32) {
     let forces = gravity_forces(stars);
     for i in 0..stars.len() {
@@ -134,22 +152,29 @@ fn step(stars: &mut Vec<Star>, dt: f32) {
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
     let mut frame = Frame::new((506, 253));
-    let zoom = Zoom{center: Vec2::zero(), scale: 150.0, resolution: frame.resolution};
+    let zoom = Zoom{center: Vec2::zero(), scale: 1.0, resolution: frame.resolution};
     let mut stars: Vec<Star> = vec!();
-    let mut rng = rand::thread_rng();
+
+    let mut source = source::default();
+    let distribution = Gaussian::new(0.0, 10.0);
+    let mut sampler = Independent(&distribution, &mut source);
     for _ in 0..100 {
+        sampler.next();
         let p = Vec2::make(
-            rng.gen::<f32>() - 0.5,
-            rng.gen::<f32>() - 0.5,
+            sampler.next().unwrap() as f32,
+            sampler.next().unwrap() as f32,
         );
-        let v = normalize(&p.cross()).scale(0.1);
-        stars.push(Star{p: p, v: v, m: 0.1});
+        let v = p.cross().scale(2.0);
+        stars.push(Star{p: p, v: v, m: 1.0});
     }
 
     let dt = 1.0 / FPS as f32;
+    let mut trails = stars.iter().map(|_| VecDeque::new()).collect();
     loop {
         step(&mut stars, dt);
-        draw(&mut frame, &stars, &zoom);
+        add_points(&mut trails, stars.iter().map(|star| star.p).collect(), 10);
+        clear(&mut frame);
+        draw(&mut frame, &trails, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
         thread::sleep(time::Duration::from_secs_f32(dt));
     }

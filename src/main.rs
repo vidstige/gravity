@@ -159,6 +159,16 @@ impl Simulation {
         self.state.velocities.push(velocity);
         self.masses.push(mass);
     }
+    fn energy(&self) -> f32 {
+        let kinetic: f32 = self.state.velocities.iter().zip(self.masses.iter()).map(|(v, m)| m * v.norm2()).sum();
+        let mut potential = 0.0;
+        for i in 0..self.state.positions.len() - 1 {
+            for j in i+1..self.state.positions.len() {
+                potential += -G * self.masses[i] * self.masses[j] / self.state.positions[i].sub(self.state.positions[j]).norm2().sqrt();
+            }
+        }
+        kinetic + potential
+    }
 }
 
 fn gravity(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
@@ -187,6 +197,27 @@ fn state_derivative(state: &State, masses: &Vec<f32>) -> State {
     }
 }
 
+// hamiltonian derivatives
+
+// For a q step (positions only)
+fn state_derivative_q(state: &State, masses: &Vec<f32>) -> State {
+    State {
+        positions: state.velocities.clone(),
+        velocities: state.velocities.iter().map(|_| Vec2::zero()).collect(),
+    }
+}
+
+// For a p step (momentum only)
+fn state_derivative_p(state: &State, masses: &Vec<f32>) -> State {
+    let forces = gravity(&state, masses);
+    let accelerations = forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect();
+    State {
+        positions: state.positions.iter().map(|_| Vec2::zero()).collect(),
+        velocities: accelerations,
+    }
+}
+
+
 fn rk4(simulation: &mut Simulation, dt: f32) {
     let state = &simulation.state;
     let masses = &simulation.masses;
@@ -200,13 +231,19 @@ fn rk4(simulation: &mut Simulation, dt: f32) {
     )
 }
 
-/*fn euler(simulation: &mut Simulation, dt: f32) {
+fn euler(simulation: &mut Simulation, dt: f32) {
     simulation.state = simulation.state.add_scaled(dt, &state_derivative(&simulation.state, &simulation.masses));
-}*/
+}
+
+fn symplctic_euler(simulation: &mut Simulation, dt: f32) {
+    let s1 = simulation.state.add_scaled(dt, &state_derivative_q(&simulation.state, &simulation.masses));
+    simulation.state = s1.add_scaled(dt, &state_derivative_p(&s1, &simulation.masses));
+}
 
 fn step(simulation: &mut Simulation, dt: f32) {
     //euler(simulation, dt);
-    rk4(simulation, dt);
+    //rk4(simulation, dt);
+    symplctic_euler(simulation, dt);
 }
 
 // computes the velocities needed to maintain orbits
@@ -235,7 +272,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let mut simulation = Simulation::new();
 
     // add stars
-    let mut source = source::default();
+    let mut source = source::default().seed([1, 99]);
     let distribution = Gaussian::new(0.0, 1.0);
     let mut sampler = Independent(&distribution, &mut source);
     for _ in 0..100 {
@@ -257,5 +294,6 @@ fn main() -> std::result::Result<(), std::io::Error> {
         draw(&mut frame, &trails, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
         thread::sleep(time::Duration::from_secs_f32(dt));
+        eprintln!("E={}", simulation.energy());
     }
 }

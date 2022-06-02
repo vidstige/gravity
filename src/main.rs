@@ -137,7 +137,7 @@ fn gravity_forces(stars: &Vec<Star>) -> Vec<Vec2<f32>> {
     forces
 }
 
-const G: f32 = 0.01;
+const G: f32 = 0.001;
 fn step(stars: &mut Vec<Star>, dt: f32) {
     let forces = gravity_forces(stars);
     for i in 0..stars.len() {
@@ -149,24 +149,43 @@ fn step(stars: &mut Vec<Star>, dt: f32) {
     }
 }
 
+fn oribtal_velocity(stars: &mut Vec<Star>) {
+    // compute total mass and center of mass
+    let mut mass = 0.0;
+    let mut cm = Vec2::zero();
+    for star in stars.iter() {
+        mass += star.m;
+        cm = cm.add(star.p.scale(star.m));
+    }
+    cm = cm.scale(1.0 / mass);
+    
+    for star in stars.iter_mut() {
+        let delta = star.p.sub(cm);
+        let r = delta.norm2().sqrt();
+        let vo = (G * mass / r).sqrt();
+        star.v = delta.cross().scale(vo / r);
+    }
+}
+
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
     let mut frame = Frame::new((506, 253));
-    let zoom = Zoom{center: Vec2::zero(), scale: 1.0, resolution: frame.resolution};
+    let zoom = Zoom{center: Vec2::zero(), scale: 25.0, resolution: frame.resolution};
     let mut stars: Vec<Star> = vec!();
 
     let mut source = source::default();
-    let distribution = Gaussian::new(0.0, 10.0);
+    let distribution = Gaussian::new(0.0, 1.0);
+    //let distribution = Uniform::new(-1.0, 1.0);
     let mut sampler = Independent(&distribution, &mut source);
     for _ in 0..100 {
-        sampler.next();
         let p = Vec2::make(
             sampler.next().unwrap() as f32,
             sampler.next().unwrap() as f32,
         );
-        let v = p.cross().scale(2.0);
-        stars.push(Star{p: p, v: v, m: 1.0});
+        stars.push(Star{p: p, v: Vec2::zero(), m: 2.0});
     }
+    stars.push(Star{p: Vec2::zero(), v: Vec2::zero(), m: 100.0});
+    oribtal_velocity(&mut stars);
 
     let dt = 1.0 / FPS as f32;
     let mut trails = stars.iter().map(|_| VecDeque::new()).collect();

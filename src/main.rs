@@ -68,6 +68,10 @@ impl Vec2<f32> {
     }
 }
 
+fn add_scaled(first: &Vec<Vec2<f32>>, k: f32, second: &Vec<Vec2<f32>>) -> Vec<Vec2<f32>> {
+    first.iter().zip(second.iter()).map(|(a, b)| a.add(&b.scale(k))).collect()
+}
+
 struct Zoom {
     center: Vec2<f32>,
     scale: f32,
@@ -117,25 +121,6 @@ struct State {
 impl State {
     fn len(&self) -> usize {
         self.positions.len()
-    }
-    fn scale(&self, k: f32) -> State {
-        State {
-            positions: self.positions.iter().map(|p| p.scale(k)).collect(),
-            velocities: self.velocities.iter().map(|v| v.scale(k)).collect(),
-        }
-    }
-    fn add(&self, other: &State) -> State {
-        State {
-            positions: self.positions.iter().zip(other.positions.iter()).map(|(a, b)| a.add(b)).collect(),
-            velocities: self.velocities.iter().zip(other.velocities.iter()).map(|(a, b)| a.add(b)).collect(),
-        }
-    }
-    // scales a paramter state and adds to this
-    fn add_scaled(&self, k: f32, other: &State) -> Self {
-        State {
-            positions: self.positions.iter().zip(other.positions.iter()).map(|(a, b)| a.add(&b.scale(k))).collect(),
-            velocities: self.velocities.iter().zip(other.velocities.iter()).map(|(a, b)| a.add(&b.scale(k))).collect(),
-        }
     }
 }
 
@@ -188,62 +173,26 @@ fn gravity(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
     forces
 }
 
-fn state_derivative(state: &State, masses: &Vec<f32>) -> State {
+fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
     let forces = gravity(&state, masses);
-    let accelerations = forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect();
-    State {
-        positions: state.velocities.clone(),
-        velocities: accelerations,
+    forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
+}
+
+// Generic symplectic step for integrating hamiltonians
+fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<Vec2<f32>>) -> State {
+    let mut q = simulation.state.positions.clone();
+    let mut v = simulation.state.velocities.clone();
+    for c in coefficents {
+        v = add_scaled(&v, c.y * dt, &acceleration(&simulation.state, &simulation.masses));
+        q = add_scaled(&q, c.x * dt, &v);
     }
-}
-
-// hamiltonian derivatives
-
-// For a q step (positions only)
-fn state_derivative_q(state: &State, masses: &Vec<f32>) -> State {
-    State {
-        positions: state.velocities.clone(),
-        velocities: state.velocities.iter().map(|_| Vec2::zero()).collect(),
-    }
-}
-
-// For a p step (momentum only)
-fn state_derivative_p(state: &State, masses: &Vec<f32>) -> State {
-    let forces = gravity(&state, masses);
-    let accelerations = forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect();
-    State {
-        positions: state.positions.iter().map(|_| Vec2::zero()).collect(),
-        velocities: accelerations,
-    }
-}
-
-
-fn rk4(simulation: &mut Simulation, dt: f32) {
-    let state = &simulation.state;
-    let masses = &simulation.masses;
-    
-    let k1 = state_derivative(state, masses).scale(dt);
-    let k2 = state_derivative(&state.add_scaled(0.5, &k1), masses).scale(dt);
-    let k3 = state_derivative(&state.add_scaled(0.5, &k2), masses).scale(dt);
-    let k4 = state_derivative(&state.add(&k3), masses).scale(dt);
-    simulation.state = state.add_scaled(1.0 / 6.0,
-        &k1.add_scaled(2.0, &k2).add_scaled(2.0, &k3).add(&k4)
-    )
-}
-
-fn euler(simulation: &mut Simulation, dt: f32) {
-    simulation.state = simulation.state.add_scaled(dt, &state_derivative(&simulation.state, &simulation.masses));
-}
-
-fn symplctic_euler(simulation: &mut Simulation, dt: f32) {
-    let s1 = simulation.state.add_scaled(dt, &state_derivative_q(&simulation.state, &simulation.masses));
-    simulation.state = s1.add_scaled(dt, &state_derivative_p(&s1, &simulation.masses));
+    State{positions: q, velocities: v}
 }
 
 fn step(simulation: &mut Simulation, dt: f32) {
-    //euler(simulation, dt);
-    //rk4(simulation, dt);
-    symplctic_euler(simulation, dt);
+    //let euler = vec!(Vec2::make(1.0, 1.0));
+    let leap2 = vec!(Vec2::make(0.5, 0.0), Vec2::make(0.5, 1.0));
+    simulation.state = symplectic_step(simulation, dt, &leap2);
 }
 
 // computes the velocities needed to maintain orbits

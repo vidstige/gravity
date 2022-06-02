@@ -56,11 +56,6 @@ impl Vec2<f32> {
     }
 }
 
-fn normalize(v: &Vec2<f32>) -> Vec2<f32> {
-    let n = v.norm2().sqrt();
-    v.scale(1.0 / n)
-}
-
 struct Star {
     p: Vec2<f32>,
     v: Vec2<f32>,
@@ -77,8 +72,8 @@ impl Zoom {
     fn to_screen(&self, world: &Vec2<f32>) -> Vec2<f32> {
         let (width, height) = self.resolution;
         Vec2::make(
-            0.5 * width as f32 + self.scale * world.x,
-            0.5 * height as f32 + self.scale * world.y,
+            0.5 * width as f32 + self.scale * (world.x - self.center.x),
+            0.5 * height as f32 + self.scale * (world.y - self.center.y),
         )
     }
 }

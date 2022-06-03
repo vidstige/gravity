@@ -16,10 +16,6 @@ impl Frame {
         Frame{resolution: (width, height), pixels: vec![0; width * height * 4]}
     }
 }
-struct Color {
-    r: u8, g: u8, b: u8, a: u8,
-}
-const WHITE: Color = Color {r: 255, g: 255, b: 255, a: 255};
 
 fn clear(frame: &mut Frame) {
     for pixel in &mut frame.pixels {
@@ -27,15 +23,19 @@ fn clear(frame: &mut Frame) {
     }
 }
 
-fn draw_pixel(frame: &mut Frame, x: usize, y: usize, color: Color) {
-    let (width, _) = frame.resolution;
-    let bpp = 4;
-    let stride = width * bpp;
-    let index = y * stride + x * bpp;
-    frame.pixels[index + 0] = color.r;
-    frame.pixels[index + 1] = color.g;
-    frame.pixels[index + 2] = color.b;
-    frame.pixels[index + 3] = color.a;
+fn draw_star(frame: &mut Frame, p: (i32, i32), intensity: u8) {
+    if inside(p, frame.resolution) {
+        let x = p.0 as usize;
+        let y = p.1 as usize;
+        let (width, _) = frame.resolution;
+        let bpp = 4;
+        let stride = width * bpp;
+        let index = y * stride + x * bpp;
+        frame.pixels[index + 0] = intensity;
+        frame.pixels[index + 1] = intensity;
+        frame.pixels[index + 2] = intensity;
+        frame.pixels[index + 3] = 255;
+    }
 }
 
 
@@ -172,7 +172,7 @@ impl Node {
     }
 }
 fn create_tree(items: &Vec<(Vec2<f32>, f32)>) -> Node {
-    let positions: Vec<_> = items.iter().map(|(p, m)| *p).collect();
+    let positions: Vec<_> = items.iter().map(|(p, _)| *p).collect();
     Node::create(&bbox(&positions), &items)
 }
 
@@ -192,28 +192,21 @@ impl Zoom {
     }
 }
 
-fn inside(p: Vec2<f32>, resolution: Resolution) -> bool {
+fn inside(p: (i32, i32), resolution: Resolution) -> bool {
     let (width, height) = resolution;
-    p.x >= 0.0 && p.x < width as f32 && p.y >= 0.0 && p.y < height as f32
+    p.0 >= 0 && p.0 < width as i32 && p.1 >= 0 && p.1 < height as i32
 }
 
 fn draw(frame: &mut Frame, positions: &Vec<Vec2<f32>>, zoom: &Zoom) {
     for position in positions {
         let screen = zoom.to_screen(position);
-        if inside(screen, frame.resolution) {
-            draw_pixel(frame, screen.x as usize, screen.y as usize, WHITE);
-        }
+        draw_star(frame, (screen.x as i32, screen.y as i32), 200);
     }
 }
 
 struct State {
     positions: Vec<Vec2<f32>>,
     velocities: Vec<Vec2<f32>>,
-}
-impl State {
-    fn len(&self) -> usize {
-        self.positions.len()
-    }
 }
 
 const G: f32 = 0.2;

@@ -343,7 +343,7 @@ fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
     }).collect()
 }
 
-fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
+fn random_galaxy(n: usize, center: &Vec2<f32>, radius: f64) -> Vec<Vec2<f32>> {
     let mut source = source::default().seed([1, 99]);
     let distribution = Gaussian::new(0.0, radius.sqrt());
     let mut sampler = Independent(&distribution, &mut source);
@@ -354,9 +354,8 @@ fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
             sampler.next().unwrap() as f32,
         );
         if position.norm2().sqrt() > radius as f32 * 0.1 {
-            positions.push(position);
+            positions.push(position.add(center));
         }
-        
     }
     positions
 }
@@ -368,23 +367,29 @@ fn spiral_galaxy(n: usize, radius: f32) -> Vec<Vec2<f32>> {
     parameters.iter().map(|(a, r)| Vec2::make(r * a.cos(), r * a.sin())).collect()
 }
 
+fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, mass: f32, radius: f64) {
+    let star_mass = (mass / 2.0) / n as f32; // half of the galaxy is stars
+    let black_hole_mass = mass / 2.0; // half is the black hole
+    // add stars
+    for p in random_galaxy(n, &center, radius) {
+        simulation.add(p, Vec2::zero(), star_mass);
+    }
+    simulation.state.velocities = oribtal_velocity(&simulation);
+    // add black hole
+    simulation.add(*center, Vec2::zero(), black_hole_mass);
+}
+
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
     let mut frame = Frame::new((506, 253));
     let zoom = Zoom{center: Vec2::zero(), scale: 10.0, resolution: frame.resolution};
     let mut simulation = Simulation::new();
 
-    // add stars
-    for p in random_galaxy(2000, 10.0) {
-        simulation.add(p, Vec2::zero(), 0.1);
-    }
-    simulation.state.velocities = oribtal_velocity(&simulation);
-    // add black hole
-    simulation.add(Vec2::zero(), Vec2::zero(), 200.0);
+    add_galaxy(&mut simulation, 2000, &Vec2::zero(), 400.0, 10.0);
 
     let dt = 1.0 / FPS as f32;
     const STEPS: usize = 1;  // steps per frame
-    for _ in 0..1000 {
+    for _ in 0..800 {
         let t0 = Instant::now();
         for _ in 0..STEPS {        
             step(&mut simulation, dt / STEPS as f32);

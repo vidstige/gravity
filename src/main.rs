@@ -4,6 +4,8 @@ use std::f64::consts::TAU;
 use std::time::Instant;
 
 use probability::prelude::*;
+use rayon::prelude::*;
+
 
 type Resolution = (usize, usize);
 
@@ -268,7 +270,7 @@ fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32
     //let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     let tree = create_tree(items);
 
-    items.iter().map(|(p0, m0)| {
+    items.par_iter().map(|(p0, m0)| {
         let mut force = Vec2::zero();
         for (p1, m1) in tree.contributions(p0, theta) {
             let (fi, _) = gravity(p0, &p1, *m0, m1);

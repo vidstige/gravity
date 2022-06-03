@@ -7,3 +7,4 @@ edition = "2018"
 
 [dependencies]
 probability = "0.18.0"
+rayon = "1.5"

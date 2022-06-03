@@ -2,6 +2,7 @@ use std::io::Write;
 use std::{thread, time};
 use std::f64::consts::TAU;
 use std::time::Instant;
+
 use probability::prelude::*;
 
 type Resolution = (usize, usize);
@@ -264,16 +265,17 @@ fn gravity(pi: &Vec2<f32>, pj: &Vec2<f32>, mi: f32, mj: f32) -> (Vec2<f32>, Vec2
 
 // approximate gravity
 fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32>> {
-    let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
+    //let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     let tree = create_tree(items);
 
-    for (i, (p0, m0)) in items.iter().enumerate() {
+    items.iter().map(|(p0, m0)| {
+        let mut force = Vec2::zero();
         for (p1, m1) in tree.contributions(p0, theta) {
             let (fi, _) = gravity(p0, &p1, *m0, m1);
-            forces[i] = forces[i].add(&fi);
+            force = force.add(&fi);
         }
-    }
-    forces
+        force
+    }).collect()
 }
 
 fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {

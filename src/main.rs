@@ -307,13 +307,13 @@ fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<(f32, f32
 }
 
 fn step(simulation: &mut Simulation, dt: f32) {
-    let euler = vec!((1.0, 1.0));
+    //let euler = vec!((1.0, 1.0));
     //let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
-    /*let ruth3 = vec!(
+    let ruth3 = vec!(
         (2.0/3.0, 7.0/24.0),
         (-2.0/3.0, 0.75),
         (1.0, -1.0/24.0),
-    );*/
+    );
     /*let c = (2.0 as f32).powf(1.0 / 3.0);
     let ruth4 = vec!(
         (0.5 / (2.0 - c), 0.0),
@@ -321,7 +321,7 @@ fn step(simulation: &mut Simulation, dt: f32) {
         (0.5*(1.0-c)/ (2.0 - c), -c/ (2.0 - c)),
         (0.5/ (2.0 - c), 1.0/ (2.0 - c)),
     );*/
-    simulation.state = symplectic_step(simulation, dt, &euler);
+    simulation.state = symplectic_step(simulation, dt, &ruth3);
 }
 
 // computes the velocities needed to maintain orbits
@@ -353,7 +353,7 @@ fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
             sampler.next().unwrap() as f32,
             sampler.next().unwrap() as f32,
         );
-        if position.norm2().sqrt() > radius as f32 * 0.2 {
+        if position.norm2().sqrt() > radius as f32 * 0.1 {
             positions.push(position);
         }
     }
@@ -367,7 +367,7 @@ fn spiral_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
     parameters.iter().map(|(a, r)| Vec2::make(r * a.cos(), r * a.sin())).collect()
 }
 
-fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, mass: f32, radius: f64) {
+fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocity: &Vec2<f32>, mass: f32, radius: f64) {
     let stars_fraction = 0.5;  // half of the mass is for stars
     let star_mass = stars_fraction * mass / n as f32;
     let black_hole_mass = mass - stars_fraction * mass; // the rest is for the black hole
@@ -377,23 +377,31 @@ fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, mass: f
     // add black hole
     let velocities = oribtal_velocity(&items);
     for ((p, m), v) in items.iter().zip(velocities.iter())  {
-        simulation.add(p, v, *m);
+        simulation.add(p, &v.add(velocity), *m);
     }
-    simulation.add(center, &Vec2::zero(), black_hole_mass);
+    simulation.add(center, &velocity, black_hole_mass);
 }
 
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
     let mut frame = Frame::new((506, 253));
-    let zoom = Zoom{center: Vec2::zero(), scale: 10.0, resolution: frame.resolution};
+    let zoom = Zoom{center: Vec2::zero(), scale: 16.0, resolution: frame.resolution};
     let mut simulation = Simulation::new();
 
-    add_galaxy(&mut simulation, 2000, &Vec2{x: 0.0, y: 0.0}, 400.0, 10.0);
-    //add_galaxy(&mut simulation, 1000, &Vec2{x: 15.0, y: 0.0}, 400.0, 10.0);
+    add_galaxy(&mut simulation, 
+        8000,
+        &Vec2{x: 0.0, y: 0.0},
+        &Vec2{x: 0.0, y: 0.1},
+        400.0, 10.0);
+    /*add_galaxy(&mut simulation,
+        800,
+        &Vec2{x: 20.0, y: 0.0},
+        &Vec2{x: 0.0, y: -0.1},
+        400.0, 10.0);*/
 
     let dt = 1.0 / FPS as f32;
     const STEPS: usize = 1;  // steps per frame
-    for _ in 0..800 {
+    for i in 0..500 {
         let t0 = Instant::now();
         for _ in 0..STEPS {        
             step(&mut simulation, dt / STEPS as f32);
@@ -404,6 +412,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
         thread::sleep(time::Duration::from_secs_f32(dt).saturating_sub(duration));
         //eprintln!("E={}, physics={}ms", simulation.energy(), duration.as_millis());
+        eprintln!("#{}, physics={}ms", i, duration.as_millis());
     }
     Ok(())
 }

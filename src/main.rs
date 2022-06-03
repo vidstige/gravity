@@ -2,6 +2,7 @@ use std::io::Write;
 use std::{thread, time};
 use std::f64::consts::TAU;
 use std::time::Instant;
+use probability::prelude::*;
 
 type Resolution = (usize, usize);
 
@@ -339,9 +340,9 @@ fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
     }).collect()
 }
 
-fn galaxy(n: usize, radius: f32) -> Vec<Vec2<f32>> {
-    /*let mut source = source::default().seed([1, 99]);
-    let distribution = Gaussian::new(0.0, 1.0);
+fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
+    let mut source = source::default().seed([1, 99]);
+    let distribution = Gaussian::new(0.0, radius.sqrt());
     let mut sampler = Independent(&distribution, &mut source);
     let mut positions = vec!();
     for _ in 0..n {
@@ -349,9 +350,15 @@ fn galaxy(n: usize, radius: f32) -> Vec<Vec2<f32>> {
             sampler.next().unwrap() as f32,
             sampler.next().unwrap() as f32,
         );
-        positions.push((position, 0.1));
+        if position.norm2().sqrt() > radius as f32 * 0.1 {
+            positions.push(position);
+        }
+        
     }
-    positions*/
+    positions
+}
+
+fn spiral_galaxy(n: usize, radius: f32) -> Vec<Vec2<f32>> {
     let inner = 0.2 * radius;
     let arms = 31.0;
     let parameters: Vec<(f32, f32)> = (0..n).map(|i| i as f32 / n as f32).map(|t| (arms * t * TAU as f32, inner + t * (radius - inner))).collect();
@@ -365,7 +372,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let mut simulation = Simulation::new();
 
     // add stars
-    for p in galaxy(2000, 10.0) {
+    for p in random_galaxy(2000, 10.0) {
         simulation.add(p, Vec2::zero(), 0.1);
     }
     simulation.state.velocities = oribtal_velocity(&simulation);
@@ -374,7 +381,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
 
     let dt = 1.0 / FPS as f32;
     const STEPS: usize = 1;  // steps per frame
-    for _ in 0..250 {
+    for _ in 0..1000 {
         let t0 = Instant::now();
         for _ in 0..STEPS {        
             step(&mut simulation, dt / STEPS as f32);
@@ -384,7 +391,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
         draw(&mut frame, &simulation.state.positions, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
         thread::sleep(time::Duration::from_secs_f32(dt).saturating_sub(duration));
-        eprintln!("E={}, physics={}ms", simulation.energy(), duration.as_millis());
+        //eprintln!("E={}, physics={}ms", simulation.energy(), duration.as_millis());
     }
     Ok(())
 }

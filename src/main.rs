@@ -159,7 +159,7 @@ impl Node {
         return Node{bbox: *bbox, value: center_of_mass(items), children: childen};
     }
     // find all contributions for a point and threshold (theta)
-    fn contributions(&self, p: Vec2<f32>, theta: f32) -> Vec<(Vec2<f32>, f32)> {
+    fn contributions(&self, p: &Vec2<f32>, theta: f32) -> Vec<(Vec2<f32>, f32)> {
         let delta = p.sub(&self.value.0);
         let d2 = delta.norm2();
         let diagonal = self.bbox.diagonal();
@@ -171,9 +171,9 @@ impl Node {
         return self.children.iter().flat_map(|node| node.contributions(p, theta)).collect();
     }
 }
-fn create_tree(positions: &Vec<Vec2<f32>>, masses: &Vec<f32>) -> Node {
-    let items: Vec<_> = positions.iter().map(|x| *x).zip(masses.iter().map(|x| *x)).collect();
-    Node::create(&bbox(positions), &items)
+fn create_tree(items: &Vec<(Vec2<f32>, f32)>) -> Node {
+    let positions: Vec<_> = items.iter().map(|(p, m)| *p).collect();
+    Node::create(&bbox(&positions), &items)
 }
 
 struct Zoom {
@@ -262,23 +262,24 @@ fn gravity(pi: &Vec2<f32>, pj: &Vec2<f32>, mi: f32, mj: f32) -> (Vec2<f32>, Vec2
 }
 
 // approximate gravity
-fn gravity_barnes_hut(state: &State, masses: &Vec<f32>, theta: f32) -> Vec<Vec2<f32>> {
-    let mut forces: Vec<Vec2<f32>> = state.positions.iter().map(|_| Vec2::zero()).collect();
-    let tree = create_tree(&state.positions, masses);
-    for i in 0..state.len() {
-        for (p, m) in tree.contributions(state.positions[i], theta) {
-            let (fi, _) = gravity(&state.positions[i], &p, masses[i], m);
+fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32>> {
+    let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
+    let tree = create_tree(items);
+
+    for (i, (p0, m0)) in items.iter().enumerate() {
+        for (p1, m1) in tree.contributions(p0, theta) {
+            let (fi, _) = gravity(p0, &p1, *m0, m1);
             forces[i] = forces[i].add(&fi);
         }
     }
     forces
 }
 
-fn gravity_direct(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
-    let mut forces: Vec<Vec2<f32>> = state.positions.iter().map(|_| Vec2::zero()).collect();
-    for i in 0..state.len()-1 {
-        for j in i+1..state.len() {
-            let (fi, fj) = gravity(&state.positions[i], &state.positions[j], m[i], m[j]);
+fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
+    let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
+    for i in 0..items.len()-1 {
+        for j in i+1..items.len() {
+            let (fi, fj) = gravity(&items[i].0, &items[j].0, items[i].1, items[j].1);
             forces[i] = forces[i].add(&fi);
             forces[j] = forces[j].add(&fj);
         }
@@ -287,8 +288,9 @@ fn gravity_direct(state: &State, m: &Vec<f32>) -> Vec<Vec2<f32>> {
 }
 
 fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
+    let items: Vec<_> = state.positions.iter().map(|x| *x).zip(masses.iter().map(|x| *x)).collect();
     //let forces = gravity_direct(&state, masses);
-    let forces = gravity_barnes_hut(&state, masses, 0.5);
+    let forces = gravity_barnes_hut(&items, 0.5);
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
 }
 

@@ -23,7 +23,7 @@ fn clear(frame: &mut Frame) {
     }
 }
 
-fn draw_star(frame: &mut Frame, p: (i32, i32), intensity: u8) {
+fn draw_pixel(frame: &mut Frame, p: (i32, i32), intensity: u8) {
     if inside(p, frame.resolution) {
         let x = p.0 as usize;
         let y = p.1 as usize;
@@ -31,13 +31,21 @@ fn draw_star(frame: &mut Frame, p: (i32, i32), intensity: u8) {
         let bpp = 4;
         let stride = width * bpp;
         let index = y * stride + x * bpp;
-        frame.pixels[index + 0] = intensity;
-        frame.pixels[index + 1] = intensity;
-        frame.pixels[index + 2] = intensity;
+        frame.pixels[index + 0] = frame.pixels[index + 0].saturating_add(intensity);
+        frame.pixels[index + 1] = frame.pixels[index + 1].saturating_add(intensity);
+        frame.pixels[index + 2] = frame.pixels[index + 2].saturating_add(intensity);
         frame.pixels[index + 3] = 255;
     }
 }
 
+fn draw_star(frame: &mut Frame, p: (i32, i32)) {
+    let (x, y) = p;
+    draw_pixel(frame, (x, y), 100);
+    draw_pixel(frame, (x - 1, y), 50);
+    draw_pixel(frame, (x, y - 1), 50);
+    draw_pixel(frame, (x + 1, y), 50);
+    draw_pixel(frame, (x, y + 1), 50);
+}
 
 #[derive(Clone, Copy)]
 struct Vec2<T> {
@@ -200,7 +208,7 @@ fn inside(p: (i32, i32), resolution: Resolution) -> bool {
 fn draw(frame: &mut Frame, positions: &Vec<Vec2<f32>>, zoom: &Zoom) {
     for position in positions {
         let screen = zoom.to_screen(position);
-        draw_star(frame, (screen.x as i32, screen.y as i32), 200);
+        draw_star(frame, (screen.x as i32, screen.y as i32));
     }
 }
 

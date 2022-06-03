@@ -232,9 +232,9 @@ impl Simulation {
             masses: vec!(),
         }
     }
-    fn add(&mut self, position: Vec2<f32>, velocity: Vec2<f32>, mass: f32) {
-        self.state.positions.push(position);
-        self.state.velocities.push(velocity);
+    fn add(&mut self, position: &Vec2<f32>, velocity: &Vec2<f32>, mass: f32) {
+        self.state.positions.push(*position);
+        self.state.velocities.push(*velocity);
         self.masses.push(mass);
     }
     fn energy(&self) -> f32 {
@@ -325,17 +325,17 @@ fn step(simulation: &mut Simulation, dt: f32) {
 }
 
 // computes the velocities needed to maintain orbits
-fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
+fn oribtal_velocity(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
     // compute total mass and center of mass
     let mut mass = 0.0;
     let mut cm = Vec2::zero();
-    for (p, m) in simulation.state.positions.iter().zip(simulation.masses.iter()) {
+    for (p, m) in items {
         mass += m;
         cm = cm.add(&p.scale(*m));
     }
     cm = cm.scale(1.0 / mass);
 
-    simulation.state.positions.iter().map(|p| {
+    items.iter().map(|(p, _)| {
         let delta = p.sub(&cm);
         let r = delta.norm2().sqrt();
         let vo = (G * mass / r).sqrt();
@@ -344,7 +344,7 @@ fn oribtal_velocity(simulation: &Simulation) -> Vec<Vec2<f32>> {
 }
 
 fn random_galaxy(n: usize, center: &Vec2<f32>, radius: f64) -> Vec<Vec2<f32>> {
-    let mut source = source::default().seed([1, 99]);
+    let mut source = source::default().seed([1337, 1337]);
     let distribution = Gaussian::new(0.0, radius.sqrt());
     let mut sampler = Independent(&distribution, &mut source);
     let mut positions = vec!();
@@ -371,12 +371,13 @@ fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, mass: f
     let star_mass = (mass / 2.0) / n as f32; // half of the galaxy is stars
     let black_hole_mass = mass / 2.0; // half is the black hole
     // add stars
-    for p in random_galaxy(n, &center, radius) {
-        simulation.add(p, Vec2::zero(), star_mass);
-    }
-    simulation.state.velocities = oribtal_velocity(&simulation);
+    let items: Vec<_> = random_galaxy(n, &center, radius).iter().map(|p| (*p, star_mass)).collect();
     // add black hole
-    simulation.add(*center, Vec2::zero(), black_hole_mass);
+    let velocities = oribtal_velocity(&items);    
+    for ((p, m), v) in items.iter().zip(velocities.iter())  {
+        simulation.add(p, v, *m);
+    }
+    simulation.add(center, &Vec2::zero(), black_hole_mass);
 }
 
 const FPS: f32 = 30.0;
@@ -385,7 +386,8 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let zoom = Zoom{center: Vec2::zero(), scale: 10.0, resolution: frame.resolution};
     let mut simulation = Simulation::new();
 
-    add_galaxy(&mut simulation, 2000, &Vec2::zero(), 400.0, 10.0);
+    add_galaxy(&mut simulation, 2000, &Vec2{x: -0.0, y: 0.0}, 400.0, 10.0);
+    //add_galaxy(&mut simulation, 1000, &Vec2{x: 15.0, y: 0.0}, 400.0, 10.0);
 
     let dt = 1.0 / FPS as f32;
     const STEPS: usize = 1;  // steps per frame

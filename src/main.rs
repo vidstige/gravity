@@ -145,7 +145,7 @@ fn center_of_mass(items: &Vec<(Vec2<f32>, f32)>) -> (Vec2<f32>, f32) {
     let mut center = Vec2::zero();
     let mut mass = 0.0;
     for (p, m) in items {
-        center = center.add(p);
+        center = center.add(&p.scale(*m));
         mass += m;
     }
     (center.scale(1.0 / mass), mass)
@@ -290,8 +290,8 @@ fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
 
 fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
     let items: Vec<_> = state.positions.iter().map(|x| *x).zip(masses.iter().map(|x| *x)).collect();
-    //let forces = gravity_direct(&state, masses);
-    let forces = gravity_barnes_hut(&items, 0.5);
+    //let forces = gravity_direct(&items);
+    let forces = gravity_barnes_hut(&items, 2.5);
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
 }
 
@@ -343,7 +343,7 @@ fn oribtal_velocity(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
     }).collect()
 }
 
-fn random_galaxy(n: usize, center: &Vec2<f32>, radius: f64) -> Vec<Vec2<f32>> {
+fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
     let mut source = source::default().seed([1337, 1337]);
     let distribution = Gaussian::new(0.0, radius.sqrt());
     let mut sampler = Independent(&distribution, &mut source);
@@ -353,27 +353,29 @@ fn random_galaxy(n: usize, center: &Vec2<f32>, radius: f64) -> Vec<Vec2<f32>> {
             sampler.next().unwrap() as f32,
             sampler.next().unwrap() as f32,
         );
-        if position.norm2().sqrt() > radius as f32 * 0.1 {
-            positions.push(position.add(center));
+        if position.norm2().sqrt() > radius as f32 * 0.2 {
+            positions.push(position);
         }
     }
     positions
 }
 
-fn spiral_galaxy(n: usize, radius: f32) -> Vec<Vec2<f32>> {
-    let inner = 0.2 * radius;
+fn spiral_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
+    let inner = 0.2 * radius as f32;
     let arms = 31.0;
-    let parameters: Vec<(f32, f32)> = (0..n).map(|i| i as f32 / n as f32).map(|t| (arms * t * TAU as f32, inner + t * (radius - inner))).collect();
+    let parameters: Vec<(f32, f32)> = (0..n).map(|i| i as f32 / n as f32).map(|t| (arms * t * TAU as f32, inner + t * (radius as f32 - inner))).collect();
     parameters.iter().map(|(a, r)| Vec2::make(r * a.cos(), r * a.sin())).collect()
 }
 
 fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, mass: f32, radius: f64) {
-    let star_mass = (mass / 2.0) / n as f32; // half of the galaxy is stars
-    let black_hole_mass = mass / 2.0; // half is the black hole
+    let stars_fraction = 0.5;  // half of the mass is for stars
+    let star_mass = stars_fraction * mass / n as f32;
+    let black_hole_mass = mass - stars_fraction * mass; // the rest is for the black hole
     // add stars
-    let items: Vec<_> = random_galaxy(n, &center, radius).iter().map(|p| (*p, star_mass)).collect();
+    let items: Vec<_> = random_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
+    //let items: Vec<_> = spiral_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     // add black hole
-    let velocities = oribtal_velocity(&items);    
+    let velocities = oribtal_velocity(&items);
     for ((p, m), v) in items.iter().zip(velocities.iter())  {
         simulation.add(p, v, *m);
     }
@@ -386,7 +388,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let zoom = Zoom{center: Vec2::zero(), scale: 10.0, resolution: frame.resolution};
     let mut simulation = Simulation::new();
 
-    add_galaxy(&mut simulation, 2000, &Vec2{x: -0.0, y: 0.0}, 400.0, 10.0);
+    add_galaxy(&mut simulation, 2000, &Vec2{x: 0.0, y: 0.0}, 400.0, 10.0);
     //add_galaxy(&mut simulation, 1000, &Vec2{x: 15.0, y: 0.0}, 400.0, 10.0);
 
     let dt = 1.0 / FPS as f32;

@@ -329,7 +329,7 @@ fn step(simulation: &mut Simulation, dt: f32) {
 }
 
 // computes the velocities needed to maintain orbits
-fn oribtal_velocity(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
+fn orbital_velocity(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
     // compute total mass and center of mass
     let mut mass = 0.0;
     let mut cm = Vec2::zero();
@@ -379,7 +379,7 @@ fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocit
     let items: Vec<_> = random_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     //let items: Vec<_> = spiral_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     // add black hole
-    let velocities = oribtal_velocity(&items);
+    let velocities = orbital_velocity(&items);
     for ((p, m), v) in items.iter().zip(velocities.iter())  {
         simulation.add(p, &v.add(velocity), *m);
     }

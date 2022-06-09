@@ -3,6 +3,7 @@ use std::{thread, time};
 use std::f64::consts::TAU;
 use std::convert::TryFrom;
 use std::time::Instant;
+use std::env;
 
 use probability::prelude::*;
 use rayon::prelude::*;
@@ -11,6 +12,17 @@ use rayon::prelude::*;
 struct Resolution {
     width: usize,
     height: usize,
+}
+
+impl TryFrom<String> for Resolution {
+    type Error = ();
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let mut parts = value.split('x');
+        let width = parts.next().unwrap().parse().unwrap();
+        let height = parts.next().unwrap().parse().unwrap();
+        Ok(Resolution{width: width, height: height})
+    }
 }
 
 
@@ -390,7 +402,9 @@ fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocit
 
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
-    let mut frame = Frame::new(Resolution{width: 506, height: 253});
+    let tmp = env::var("RESOLUTION").or::<()>(Ok("506x253".to_string())).unwrap();
+    let resolution = Resolution::try_from(tmp).unwrap();
+    let mut frame = Frame::new(resolution);
     let zoom = Zoom{center: Vec2::zero(), scale: 16.0, resolution: frame.resolution};
     let mut simulation = Simulation::new();
 

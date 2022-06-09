@@ -9,6 +9,7 @@ use probability::prelude::*;
 use rayon::prelude::*;
 
 const SOFTENING: f32 = 0.25;
+const THETA: f32 = 2.5;
 
 #[derive(Clone, Copy)]
 struct Resolution {
@@ -311,7 +312,7 @@ fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
 fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
     let items: Vec<_> = state.positions.iter().map(|x| *x).zip(masses.iter().map(|x| *x)).collect();
     //let forces = gravity_direct(&items);
-    let forces = gravity_barnes_hut(&items, 2.5);
+    let forces = gravity_barnes_hut(&items, THETA);
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
 }
 

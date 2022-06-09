@@ -9,14 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
-name = "barnes-hut"
-version = "0.1.0"
-dependencies = [
- "probability",
- "rayon",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -72,6 +64,14 @@ name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
+
+[[package]]
+name = "gravity"
+version = "0.1.0"
+dependencies = [
+ "probability",
+ "rayon",
+]
 
 [[package]]
 name = "hermit-abi"

@@ -9,7 +9,7 @@ use probability::prelude::*;
 use rayon::prelude::*;
 
 const G: f32 = 0.2; // Gravitational constant. (m^2⋅kg^-1⋅s^−2)
-const SOFTENING: f32 = 0.25; // Softens hard accelerations. (m^2⋅kg^-1⋅s^−2)
+const SOFTENING: f32 = 0.05; // Softens hard accelerations. (m)
 const THETA: f32 = 2.5; // Threshold value for Barnes-Hut. (m)
 
 #[derive(Clone, Copy)]
@@ -276,8 +276,8 @@ fn gravity((pi, mi): (Vec2<f32>, f32), (pj, mj): (Vec2<f32>, f32)) -> (Vec2<f32>
     if r2.abs() < std::f32::EPSILON {
         return (Vec2::zero(), Vec2::zero());
     }
-    let f = G * mi * mj / r2;  // gravity force
-    let r = (r2 + SOFTENING*SOFTENING).sqrt();
+    let f = G * mi * mj / (r2 + SOFTENING*SOFTENING);  // gravity force
+    let r = r2.sqrt();
     (delta.scale(-f / r), delta.scale(f / r))
 }
 

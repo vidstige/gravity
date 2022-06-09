@@ -8,6 +8,8 @@ use std::env;
 use probability::prelude::*;
 use rayon::prelude::*;
 
+const SOFTENING: f32 = 0.25;
+
 #[derive(Clone, Copy)]
 struct Resolution {
     width: usize,
@@ -275,7 +277,7 @@ fn gravity(pi: &Vec2<f32>, pj: &Vec2<f32>, mi: f32, mj: f32) -> (Vec2<f32>, Vec2
         return (Vec2::zero(), Vec2::zero());
     }
     let f = G * mi * mj / r2;  // gravity force
-    let r = r2.sqrt();
+    let r = (r2 + SOFTENING*SOFTENING).sqrt();
     (delta.scale(-f / r), delta.scale(f / r))
 }
 
@@ -409,7 +411,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
     let mut simulation = Simulation::new();
 
     add_galaxy(&mut simulation, 
-        8000,
+        500,
         &Vec2{x: 0.0, y: 0.0},
         &Vec2{x: 0.0, y: 0.1},
         400.0, 10.0);
@@ -420,7 +422,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
         400.0, 10.0);*/
 
     let dt = 1.0 / FPS as f32;
-    const STEPS: usize = 1;  // steps per frame
+    const STEPS: usize = 10;  // steps per frame
     for i in 0..500 {
         let t0 = Instant::now();
         for _ in 0..STEPS {        

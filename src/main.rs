@@ -8,8 +8,9 @@ use std::env;
 use probability::prelude::*;
 use rayon::prelude::*;
 
-const SOFTENING: f32 = 0.25;
-const THETA: f32 = 2.5;
+const G: f32 = 0.2; // Gravitational constant. (m^2⋅kg^-1⋅s^−2)
+const SOFTENING: f32 = 0.25; // Softens hard accelerations. (m^2⋅kg^-1⋅s^−2)
+const THETA: f32 = 2.5; // Threshold value for Barnes-Hut. (m)
 
 #[derive(Clone, Copy)]
 struct Resolution {
@@ -27,7 +28,6 @@ impl TryFrom<String> for Resolution {
         Ok(Resolution{width: width, height: height})
     }
 }
-
 
 struct Frame {
     resolution: Resolution,
@@ -237,7 +237,6 @@ struct State {
     velocities: Vec<Vec2<f32>>,
 }
 
-const G: f32 = 0.2;
 struct Simulation {
     state: State,
     masses: Vec<f32>,

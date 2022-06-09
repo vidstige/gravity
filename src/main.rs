@@ -269,8 +269,8 @@ impl Simulation {
 }
 
 // Computes gravity force acting on (pi, mi) by (pj, mj) and reverse. This force is symetric
-fn gravity(pi: &Vec2<f32>, pj: &Vec2<f32>, mi: f32, mj: f32) -> (Vec2<f32>, Vec2<f32>) {
-    let delta = pi.sub(pj);
+fn gravity((pi, mi): (Vec2<f32>, f32), (pj, mj): (Vec2<f32>, f32)) -> (Vec2<f32>, Vec2<f32>) {
+    let delta = pi.sub(&pj);
     let r2 = delta.norm2();
     // TODO: handle same point interaction better here
     if r2.abs() < std::f32::EPSILON {
@@ -289,7 +289,7 @@ fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32
     items.par_iter().map(|(p0, m0)| {
         let mut force = Vec2::zero();
         for (p1, m1) in tree.contributions(p0, theta) {
-            let (fi, _) = gravity(p0, &p1, *m0, m1);
+            let (fi, _) = gravity((*p0, *m0), (p1, m1));
             force = force.add(&fi);
         }
         force
@@ -300,7 +300,7 @@ fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
     let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     for i in 0..items.len()-1 {
         for j in i+1..items.len() {
-            let (fi, fj) = gravity(&items[i].0, &items[j].0, items[i].1, items[j].1);
+            let (fi, fj) = gravity(items[i], items[j]);
             forces[i] = forces[i].add(&fi);
             forces[j] = forces[j].add(&fj);
         }

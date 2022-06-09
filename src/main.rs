@@ -1,13 +1,18 @@
 use std::io::Write;
 use std::{thread, time};
 use std::f64::consts::TAU;
+use std::convert::TryFrom;
 use std::time::Instant;
 
 use probability::prelude::*;
 use rayon::prelude::*;
 
+#[derive(Clone, Copy)]
+struct Resolution {
+    width: usize,
+    height: usize,
+}
 
-type Resolution = (usize, usize);
 
 struct Frame {
     resolution: Resolution,
@@ -15,8 +20,8 @@ struct Frame {
 }
 
 impl Frame {
-    fn new((width, height): Resolution) -> Self {
-        Frame{resolution: (width, height), pixels: vec![0; width * height * 4]}
+    fn new(resolution: Resolution) -> Self {
+        Frame{resolution: resolution, pixels: vec![0; resolution.width * resolution.height * 4]}
     }
 }
 
@@ -30,9 +35,8 @@ fn draw_pixel(frame: &mut Frame, p: (i32, i32), intensity: u8) {
     if inside(p, frame.resolution) {
         let x = p.0 as usize;
         let y = p.1 as usize;
-        let (width, _) = frame.resolution;
         let bpp = 4;
-        let stride = width * bpp;
+        let stride = frame.resolution.width * bpp;
         let index = y * stride + x * bpp;
         frame.pixels[index + 0] = frame.pixels[index + 0].saturating_add(intensity);
         frame.pixels[index + 1] = frame.pixels[index + 1].saturating_add(intensity);
@@ -195,17 +199,15 @@ struct Zoom {
 
 impl Zoom {
     fn to_screen(&self, world: &Vec2<f32>) -> Vec2<f32> {
-        let (width, height) = self.resolution;
         Vec2::make(
-            0.5 * width as f32 + self.scale * (world.x - self.center.x),
-            0.5 * height as f32 + self.scale * (world.y - self.center.y),
+            0.5 * self.resolution.width as f32 + self.scale * (world.x - self.center.x),
+            0.5 * self.resolution.height as f32 + self.scale * (world.y - self.center.y),
         )
     }
 }
 
 fn inside(p: (i32, i32), resolution: Resolution) -> bool {
-    let (width, height) = resolution;
-    p.0 >= 0 && p.0 < width as i32 && p.1 >= 0 && p.1 < height as i32
+    p.0 >= 0 && p.0 < resolution.width as i32 && p.1 >= 0 && p.1 < resolution.height as i32
 }
 
 fn draw(frame: &mut Frame, positions: &Vec<Vec2<f32>>, zoom: &Zoom) {
@@ -388,7 +390,7 @@ fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocit
 
 const FPS: f32 = 30.0;
 fn main() -> std::result::Result<(), std::io::Error> {
-    let mut frame = Frame::new((506, 253));
+    let mut frame = Frame::new(Resolution{width: 506, height: 253});
     let zoom = Zoom{center: Vec2::zero(), scale: 16.0, resolution: frame.resolution};
     let mut simulation = Simulation::new();
 

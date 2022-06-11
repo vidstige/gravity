@@ -6,7 +6,7 @@ use std::time::Instant;
 use std::env;
 
 mod gravity;
-use gravity::gravity::{G, Vec2, Simulation, step, THETA};
+use gravity::{G, Vec2, Simulation, step, THETA};
 
 //use probability::prelude::*;
 

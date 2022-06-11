@@ -7,9 +7,11 @@
   <body>
     <canvas id="target" width="800" height="800"></canvas>
     <script type="module">
-      import init, {greet} from "./pkg/gravity.js";
+      import init, {Simulation, step} from "./pkg/gravity.js";
       function run() {
-        console.log('ok');
+        const simulation = new Simulation();
+        console.log(simulation.wow());
+        step(simulation, 0.1);
       }
       init().then(run);
     </script>

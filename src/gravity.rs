@@ -1,5 +1,3 @@
-pub mod gravity {
-
 pub const G: f32 = 0.2; // Gravitational constant. (m^2⋅kg^-1⋅s^−2)
 pub const SOFTENING: f32 = 0.15; // Softens hard accelerations. (m)
 pub const THETA: f32 = 2.5; // Threshold value for Barnes-Hut. (m)
@@ -264,6 +262,4 @@ pub fn step(simulation: &mut Simulation, dt: f32) {
         (0.5/ (2.0 - c), 1.0/ (2.0 - c)),
     );*/
     simulation.state = symplectic_step(simulation, dt, &euler);
-}
-
 }

@@ -69,7 +69,7 @@ fn draw_star(frame: &mut Frame, p: (i32, i32)) {
     draw_pixel(frame, (x, y + 1), 50);
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Vec2<T> {
     x: T,
     y: T,
@@ -198,7 +198,8 @@ impl Node {
         if self.children.len() == 0 || s2 / d2 < theta * theta {
             return vec!(self.value);
         }
-        return self.children.iter().flat_map(|node| node.contributions(p, theta)).collect();
+        // return childs - filter out self matches
+        self.children.iter().flat_map(|node| node.contributions(p, theta)).filter(|(point, _)| point != p).collect()
     }
 }
 fn create_tree(items: &Vec<(Vec2<f32>, f32)>) -> Node {
@@ -232,9 +233,15 @@ fn draw(frame: &mut Frame, positions: &Vec<Vec2<f32>>, zoom: &Zoom) {
     }
 }
 
+// physics
 struct State {
     positions: Vec<Vec2<f32>>,
     velocities: Vec<Vec2<f32>>,
+}
+
+// compute the gravitational potential energy between a particle pair
+fn potential_energy((pi, mi): (&Vec2<f32>, &f32), (pj, mj): (&Vec2<f32>, &f32)) -> f32 {
+    -G * mi * mj / pi.sub(&pj).norm2().sqrt()
 }
 
 struct Simulation {
@@ -256,14 +263,20 @@ impl Simulation {
         self.state.velocities.push(*velocity);
         self.masses.push(mass);
     }
-    fn energy(&self) -> f32 {
-        let kinetic: f32 = self.state.velocities.iter().zip(self.masses.iter()).map(|(v, m)| m * v.norm2()).sum();
-        let mut potential = 0.0;
-        for i in 0..self.state.positions.len() - 1 {
+    fn energy(&self, theta: f32) -> f32 {
+        let items: Vec<_> = self.state.positions.iter().map(|x| *x).zip(self.masses.iter().map(|x| *x)).collect();
+        let kinetic: f32 = items.iter().map(|(v, m)| m * v.norm2()).sum();
+
+        /*for i in 0..self.state.positions.len() - 1 {
             for j in i+1..self.state.positions.len() {
                 potential += -G * self.masses[i] * self.masses[j] / self.state.positions[i].sub(&self.state.positions[j]).norm2().sqrt();
             }
-        }
+        }*/
+        let tree = create_tree(&items);
+        let potential: f32 = items.par_iter().map(|(p0, m0)|
+            tree.contributions(p0, theta).iter().map(|(p1, m1)| potential_energy((p0, m0), (p1, m1))).sum::<f32>()
+        ).sum();
+ 
         kinetic + potential
     }
 }
@@ -272,10 +285,6 @@ impl Simulation {
 fn gravity((pi, mi): (Vec2<f32>, f32), (pj, mj): (Vec2<f32>, f32)) -> (Vec2<f32>, Vec2<f32>) {
     let delta = pi.sub(&pj);
     let r2 = delta.norm2();
-    // TODO: handle same point interaction better here
-    if r2.abs() < std::f32::EPSILON {
-        return (Vec2::zero(), Vec2::zero());
-    }
     let f = G * mi * mj / (r2 + SOFTENING*SOFTENING);  // gravity force
     let r = r2.sqrt();
     (delta.scale(-f / r), delta.scale(f / r))
@@ -433,8 +442,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
         draw(&mut frame, &simulation.state.positions, &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
         thread::sleep(time::Duration::from_secs_f32(dt).saturating_sub(duration));
-        //eprintln!("E={}, physics={}ms", simulation.energy(), duration.as_millis());
-        eprintln!("#{}, physics={}ms", i, duration.as_millis());
+        eprintln!("E={}, physics={}ms", simulation.energy(THETA), duration.as_millis());
     }
     Ok(())
 }

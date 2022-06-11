@@ -5,12 +5,13 @@
     <title>gravity</title>
   </head>
   <body>
+    <canvas id="target" width="800" height="800"></canvas>
     <script type="module">
       import init, {greet} from "./pkg/gravity.js";
-      init()
-        .then(() => {
-          greet("WebAssembly")
-        });
+      function run() {
+        console.log('ok');
+      }
+      init().then(run);
     </script>
   </body>
 </html>

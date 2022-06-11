@@ -282,12 +282,12 @@ impl Simulation {
 }
 
 // Computes gravity force acting on (pi, mi) by (pj, mj) and reverse. This force is symetric
-fn gravity((pi, mi): (Vec2<f32>, f32), (pj, mj): (Vec2<f32>, f32)) -> (Vec2<f32>, Vec2<f32>) {
+fn gravity((pi, mi): (Vec2<f32>, f32), (pj, mj): (Vec2<f32>, f32)) -> Vec2<f32> {
     let delta = pi.sub(&pj);
     let r2 = delta.norm2();
     let f = G * mi * mj / (r2 + SOFTENING*SOFTENING);  // gravity force
     let r = r2.sqrt();
-    (delta.scale(-f / r), delta.scale(f / r))
+    delta.scale(-f / r)
 }
 
 // approximate gravity
@@ -298,8 +298,7 @@ fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32
     items.par_iter().map(|(p0, m0)| {
         let mut force = Vec2::zero();
         for (p1, m1) in tree.contributions(p0, theta) {
-            let (fi, _) = gravity((*p0, *m0), (p1, m1));
-            force = force.add(&fi);
+            force = force.add(&gravity((*p0, *m0), (p1, m1)));
         }
         force
     }).collect()
@@ -309,9 +308,8 @@ fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
     let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     for i in 0..items.len()-1 {
         for j in i+1..items.len() {
-            let (fi, fj) = gravity(items[i], items[j]);
-            forces[i] = forces[i].add(&fi);
-            forces[j] = forces[j].add(&fj);
+            forces[i] = forces[i].add(&gravity(items[i], items[j]));
+            forces[j] = forces[j].add(&gravity(items[j], items[i]));
         }
     }
     forces
@@ -432,7 +430,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
 
     let dt = 1.0 / FPS as f32;
     const STEPS: usize = 10;  // steps per frame
-    for i in 0..500 {
+    for _ in 0..5000 {
         let t0 = Instant::now();
         for _ in 0..STEPS {        
             step(&mut simulation, dt / STEPS as f32);

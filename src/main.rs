@@ -5,11 +5,11 @@ use std::convert::TryFrom;
 use std::time::Instant;
 use std::env;
 
-use probability::prelude::*;
-use rayon::prelude::*;
+//use probability::prelude::*;
+
 
 const G: f32 = 0.2; // Gravitational constant. (m^2⋅kg^-1⋅s^−2)
-const SOFTENING: f32 = 0.05; // Softens hard accelerations. (m)
+const SOFTENING: f32 = 0.15; // Softens hard accelerations. (m)
 const THETA: f32 = 2.5; // Threshold value for Barnes-Hut. (m)
 
 #[derive(Clone, Copy)]
@@ -273,7 +273,7 @@ impl Simulation {
             }
         }*/
         let tree = create_tree(&items);
-        let potential: f32 = items.par_iter().map(|(p0, m0)|
+        let potential: f32 = items.iter().map(|(p0, m0)|
             tree.contributions(p0, theta).iter().map(|(p1, m1)| potential_energy((p0, m0), (p1, m1))).sum::<f32>()
         ).sum();
  
@@ -295,7 +295,7 @@ fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32
     //let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     let tree = create_tree(items);
 
-    items.par_iter().map(|(p0, m0)| {
+    items.iter().map(|(p0, m0)| {
         let mut force = Vec2::zero();
         for (p1, m1) in tree.contributions(p0, theta) {
             force = force.add(&gravity((*p0, *m0), (p1, m1)));
@@ -334,13 +334,13 @@ fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<(f32, f32
 }
 
 fn step(simulation: &mut Simulation, dt: f32) {
-    //let euler = vec!((1.0, 1.0));
+    let euler = vec!((1.0, 1.0));
     //let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
-    let ruth3 = vec!(
+    /*let ruth3 = vec!(
         (2.0/3.0, 7.0/24.0),
         (-2.0/3.0, 0.75),
         (1.0, -1.0/24.0),
-    );
+    );*/
     /*let c = (2.0 as f32).powf(1.0 / 3.0);
     let ruth4 = vec!(
         (0.5 / (2.0 - c), 0.0),
@@ -348,7 +348,7 @@ fn step(simulation: &mut Simulation, dt: f32) {
         (0.5*(1.0-c)/ (2.0 - c), -c/ (2.0 - c)),
         (0.5/ (2.0 - c), 1.0/ (2.0 - c)),
     );*/
-    simulation.state = symplectic_step(simulation, dt, &ruth3);
+    simulation.state = symplectic_step(simulation, dt, &euler);
 }
 
 // computes the velocities needed to maintain orbits
@@ -366,10 +366,11 @@ fn orbital_velocity(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
         let delta = p.sub(&cm);
         let r = delta.norm2().sqrt();
         let vo = (G * mass / r).sqrt();
-        delta.cross().scale(vo / r)
+        delta.cross().scale(2.0 * vo / r)
     }).collect()
 }
 
+/*
 fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
     let mut source = source::default().seed([1337, 1337]);
     let distribution = Gaussian::new(0.0, radius.sqrt());
@@ -385,7 +386,7 @@ fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
         }
     }
     positions
-}
+}*/
 
 fn spiral_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
     let inner = 0.2 * radius as f32;
@@ -395,11 +396,11 @@ fn spiral_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
 }
 
 fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocity: &Vec2<f32>, mass: f32, radius: f64) {
-    let stars_fraction = 0.5;  // half of the mass is for stars
+    let stars_fraction = 0.1;  // half of the mass is for stars
     let star_mass = stars_fraction * mass / n as f32;
     let black_hole_mass = mass - stars_fraction * mass; // the rest is for the black hole
     // add stars
-    let items: Vec<_> = random_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
+    let items: Vec<_> = spiral_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     //let items: Vec<_> = spiral_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     // add black hole
     let velocities = orbital_velocity(&items);

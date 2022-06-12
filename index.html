@@ -7,11 +7,13 @@
   <body>
     <canvas id="target" width="800" height="800"></canvas>
     <script type="module">
-      import init, {Simulation, step} from "./pkg/gravity.js";
+      import init, {Simulation, step, render} from "./pkg/gravity.js";
       function run() {
         const simulation = new Simulation();
-        console.log(simulation.wow());
+        simulation.add(0, -5, 0.1, 0, 0.1);
+        simulation.add(0, 5, -0.1, 0, 0.1);
         step(simulation, 0.1);
+        render("target");
       }
       init().then(run);
     </script>

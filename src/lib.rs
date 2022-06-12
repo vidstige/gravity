@@ -25,7 +25,7 @@ pub fn step(simulation: &mut Simulation, dt: f32) {
 }
 
 #[wasm_bindgen]
-pub fn render(target: String) {
+pub fn render(target: String, simulation: &Simulation) {
     let document = web_sys::window().unwrap().document().unwrap();
     let canvas = document.get_element_by_id(&target).unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas
@@ -33,13 +33,26 @@ pub fn render(target: String) {
         .map_err(|_| ())
         .unwrap();
 
-    let context = canvas
+    let ctx = canvas
         .get_context("2d")
         .unwrap()
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
+    
+        
 
+    ctx.reset_transform();
+    ctx.clear_rect(0.0, 0.0, canvas.width() as f64, canvas.height() as f64);
+    ctx.translate(0.5 * canvas.width() as f64, 0.5 * canvas.height() as f64);
+    
+    ctx.begin_path();
+    for p in simulation.0.positions() {
+        ctx.arc(p.x as f64, p.y as f64, 5.0, 0.0, std::f64::consts::TAU);
+    }
+    ctx.fill();
+    
+/*
     context.begin_path();
 
     // Draw the outer circle.
@@ -63,5 +76,5 @@ pub fn render(target: String) {
         .arc(90.0, 65.0, 5.0, 0.0, std::f64::consts::TAU)
         .unwrap();
 
-    context.stroke();
+    context.stroke();*/
 }

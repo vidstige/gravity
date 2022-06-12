@@ -8,12 +8,18 @@
     <canvas id="target" width="800" height="800"></canvas>
     <script type="module">
       import init, {Simulation, step, render} from "./pkg/gravity.js";
+      
       function run() {
         const simulation = new Simulation();
-        simulation.add(0, -5, 0.1, 0, 0.1);
-        simulation.add(0, 5, -0.1, 0, 0.1);
-        step(simulation, 0.1);
-        render("target");
+        simulation.add(0, -50, 1.0, 0, 0.1);
+        simulation.add(0, 50, -1.0, 0, 0.1);
+        console.log("once");
+        function frame(t) {
+          render("target", simulation);
+          step(simulation, 0.1);
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
       }
       init().then(run);
     </script>

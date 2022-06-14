@@ -6,7 +6,7 @@ use std::time::Instant;
 use std::env;
 
 mod gravity;
-use gravity::{G, Vec2, Simulation, step, THETA};
+use gravity::{Vec2, Simulation, step};
 
 //use probability::prelude::*;
 
@@ -96,7 +96,7 @@ fn draw(frame: &mut Frame, positions: &Vec<Vec2<f32>>, zoom: &Zoom) {
 
 
 // computes the velocities needed to maintain orbits
-fn orbital_velocity(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
+fn orbital_velocity(items: &Vec<(Vec2<f32>, f32)>, G: f32) -> Vec<Vec2<f32>> {
     // compute total mass and center of mass
     let mut mass = 0.0;
     let mut cm = Vec2::zero();
@@ -147,7 +147,7 @@ fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocit
     let items: Vec<_> = spiral_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     //let items: Vec<_> = spiral_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     // add black hole
-    let velocities = orbital_velocity(&items);
+    let velocities = orbital_velocity(&items, simulation.G);
     for ((p, m), v) in items.iter().zip(velocities.iter())  {
         simulation.add(p, &v.add(velocity), *m);
     }
@@ -185,7 +185,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
         draw(&mut frame, simulation.positions(), &zoom);
         std::io::stdout().write_all(&(frame.pixels)).unwrap();
         thread::sleep(time::Duration::from_secs_f32(dt).saturating_sub(duration));
-        eprintln!("E={}, physics={}ms", simulation.energy(THETA), duration.as_millis());
+        eprintln!("E={}, physics={}ms", simulation.energy(), duration.as_millis());
     }
     Ok(())
 }

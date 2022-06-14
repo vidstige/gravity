@@ -1,6 +1,5 @@
-pub const G: f32 = 0.2; // Gravitational constant. (m^2⋅kg^-1⋅s^−2)
-pub const SOFTENING: f32 = 0.15; // Softens hard accelerations. (m)
-pub const THETA: f32 = 2.5; // Threshold value for Barnes-Hut. (m)
+//pub const SOFTENING: f32 = 0.15; 
+//pub const THETA: f32 = 2.5; 
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Vec2<T> {
@@ -146,17 +145,23 @@ struct State {
 }
 
 // compute the gravitational potential energy between a particle pair
-fn potential_energy((pi, mi): (&Vec2<f32>, &f32), (pj, mj): (&Vec2<f32>, &f32)) -> f32 {
+fn potential_energy((pi, mi): (&Vec2<f32>, &f32), (pj, mj): (&Vec2<f32>, &f32), G: f32) -> f32 {
     -G * mi * mj / pi.sub(&pj).norm2().sqrt()
 }
 
 pub struct Simulation {
+    pub G: f32,         // Gravitational "constant" (m^3⋅kg^-1⋅s^−2) 
+    pub theta: f32,     // Threshold value for Barnes-Hut. ()
+    pub softening: f32, // Softens hard accelerations. (m)
     state: State,
     masses: Vec<f32>,
 }
 impl Simulation {
     pub fn new() -> Self {
         Simulation{
+            G: 6.674e-11,
+            theta: 0.0,
+            softening: 0.15,
             state: State {
                 positions: vec!(),
                 velocities: vec!(),
@@ -172,7 +177,7 @@ impl Simulation {
     pub fn positions(&self) -> &Vec<Vec2<f32>> {
         &self.state.positions
     }
-    pub fn energy(&self, theta: f32) -> f32 {
+    pub fn energy(&self) -> f32 {
         let items: Vec<_> = self.state.positions.iter().map(|x| *x).zip(self.masses.iter().map(|x| *x)).collect();
         let kinetic: f32 = items.iter().map(|(v, m)| m * v.norm2()).sum();
 
@@ -183,7 +188,7 @@ impl Simulation {
         }*/
         let tree = create_tree(&items);
         let potential: f32 = items.iter().map(|(p0, m0)|
-            tree.contributions(p0, theta).iter().map(|(p1, m1)| potential_energy((p0, m0), (p1, m1))).sum::<f32>()
+            tree.contributions(p0, self.theta).iter().map(|(p1, m1)| potential_energy((p0, m0), (p1, m1), self.G)).sum::<f32>()
         ).sum();
  
         kinetic + potential
@@ -191,43 +196,43 @@ impl Simulation {
 }
 
 // Computes gravity force acting on (pi, mi) by (pj, mj) and reverse. This force is symetric
-fn gravity((pi, mi): (Vec2<f32>, f32), (pj, mj): (Vec2<f32>, f32)) -> Vec2<f32> {
+fn gravity((pi, mi): (Vec2<f32>, f32), (pj, mj): (Vec2<f32>, f32), G: f32, softening: f32) -> Vec2<f32> {
     let delta = pi.sub(&pj);
     let r2 = delta.norm2();
-    let f = G * mi * mj / (r2 + SOFTENING*SOFTENING);  // gravity force
+    let f = G * mi * mj / (r2 + softening*softening);  // gravity force
     let r = r2.sqrt();
     delta.scale(-f / r)
 }
 
 // approximate gravity
-fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32>> {
+fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, G: f32, softening: f32, theta: f32) -> Vec<Vec2<f32>> {
     //let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     let tree = create_tree(items);
 
     items.iter().map(|(p0, m0)| {
         let mut force = Vec2::zero();
         for (p1, m1) in tree.contributions(p0, theta) {
-            force = force.add(&gravity((*p0, *m0), (p1, m1)));
+            force = force.add(&gravity((*p0, *m0), (p1, m1), G, softening));
         }
         force
     }).collect()
 }
 
-fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
+fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>, G: f32, softening: f32) -> Vec<Vec2<f32>> {
     let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     for i in 0..items.len()-1 {
         for j in i+1..items.len() {
-            forces[i] = forces[i].add(&gravity(items[i], items[j]));
-            forces[j] = forces[j].add(&gravity(items[j], items[i]));
+            forces[i] = forces[i].add(&gravity(items[i], items[j], G, softening));
+            forces[j] = forces[j].add(&gravity(items[j], items[i], G, softening));
         }
     }
     forces
 }
 
-fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
+fn acceleration(state: &State, masses: &Vec<f32>, G: f32, softening: f32, theta: f32) -> Vec<Vec2<f32>> {
     let items: Vec<_> = state.positions.iter().map(|x| *x).zip(masses.iter().map(|x| *x)).collect();
     //let forces = gravity_direct(&items);
-    let forces = gravity_barnes_hut(&items, THETA);
+    let forces = gravity_barnes_hut(&items, G, softening, theta);
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
 }
 
@@ -240,7 +245,7 @@ fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<(f32, f32
     let mut q = simulation.state.positions.clone();
     let mut v = simulation.state.velocities.clone();
     for (c, d) in coefficents {
-        v = add_scaled(&v, c * dt, &acceleration(&simulation.state, &simulation.masses));
+        v = add_scaled(&v, c * dt, &acceleration(&simulation.state, &simulation.masses, simulation.G, simulation.softening, simulation.theta));
         q = add_scaled(&q, d * dt, &v);
     }
     State{positions: q, velocities: v}

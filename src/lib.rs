@@ -11,11 +11,17 @@ pub struct Simulation(gravity::Simulation);
 impl Simulation {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Simulation {
-        Simulation{0: gravity::Simulation::new()}
+        let mut simulation = gravity::Simulation::new();
+        simulation.G = 0.025;
+        Simulation{0: simulation}
     }
     #[wasm_bindgen]
     pub fn add(&mut self, x: f32, y: f32, vx: f32, vy: f32, mass: f32) {
         self.0.add(&Vec2{x: x, y: y}, &Vec2{x: vx, y: vy}, mass);
+    }
+    #[wasm_bindgen]
+    pub fn set_g(&mut self, G: f32) {
+        self.0.G = G;
     }
 }
 

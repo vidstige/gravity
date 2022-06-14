@@ -6,14 +6,26 @@
   </head>
   <body>
     <canvas id="target" width="800" height="800"></canvas>
+    <p>
+      <label for="id">G</label><input id="G" type="range"/>
+    </p>    
     <script type="module">
       import init, {Simulation, step, render} from "./pkg/gravity.js";
-      
+
+      class UI {
+        constructor(simulation) {
+          document.getElementById('G').onchange = function(e) {            
+            console.log(e.target.value);
+            simulation.set_g(e.target.value);
+          };
+        }
+      }
+
       function run() {
         const simulation = new Simulation();
-        simulation.add(0, -50, 1.0, 0, 0.1);
-        simulation.add(0, 50, -1.0, 0, 0.1);
-        console.log("once");
+        simulation.add(0, -20, 1.0, 0, 1000.1);
+        simulation.add(0, 20, -1.0, 0, 1000.1);
+        new UI(simulation);
         function frame(t) {
           render("target", simulation);
           step(simulation, 0.1);
@@ -21,6 +33,8 @@
         }
         requestAnimationFrame(frame);
       }
+      
+      const ui = new UI();
       init().then(run);
     </script>
   </body>

@@ -7,25 +7,25 @@
   <body>
     <canvas id="target" width="800" height="800"></canvas>
     <p>
-      <label for="id">G</label><input id="G" type="range"/>
+      <label for="id">G</label><input id="G" type="range" min="0" max="1.0" step="0.01" value="0.65"/>
     </p>    
     <script type="module">
       import init, {Simulation, step, render} from "./pkg/gravity.js";
 
       class UI {
         constructor(simulation) {
-          document.getElementById('G').onchange = function(e) {            
-            console.log(e.target.value);
-            simulation.set_g(e.target.value);
+          document.getElementById('G').onchange = function(e) {
+            simulation.g = e.target.value;
           };
         }
       }
 
       function run() {
         const simulation = new Simulation();
-        simulation.add(0, -20, 1.0, 0, 1000.1);
-        simulation.add(0, 20, -1.0, 0, 1000.1);
-        new UI(simulation);
+        simulation.add(0, -20, 5.0, 0, 1000.1);
+        simulation.add(0, 20, -5.0, 0, 1000.1);
+        simulation.g = document.getElementById('G').value;
+        const ui = new UI(simulation);
         function frame(t) {
           render("target", simulation);
           step(simulation, 0.1);

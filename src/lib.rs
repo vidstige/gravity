@@ -19,7 +19,11 @@ impl Simulation {
     pub fn add(&mut self, x: f32, y: f32, vx: f32, vy: f32, mass: f32) {
         self.0.add(&Vec2{x: x, y: y}, &Vec2{x: vx, y: vy}, mass);
     }
-    #[wasm_bindgen]
+    
+    #[wasm_bindgen(method, getter)]
+    pub fn g(&mut self) -> f32 { self.0.G }
+
+    #[wasm_bindgen(method, setter)]
     pub fn set_g(&mut self, G: f32) {
         self.0.G = G;
     }

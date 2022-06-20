@@ -1,25 +1,33 @@
 import init, { Simulation, step, render } from "../pkg/gravity";
 
-function getPosition(canvas, event) {
+function getPosition(canvas: HTMLCanvasElement, event: MouseEvent) {
   const rect = canvas.getBoundingClientRect();
-  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  return {x: event.clientX - rect.left, y: event.clientY - rect.top};
 }
 
 class Gaussian {
-  constructor(uniform) {
+  uniform: () => number;
+  constructor(uniform: () => number) {
     this.uniform = uniform || Math.random;
   }
-  sample() {
+  sample(): number {
     // Box Müller sample
     // Use 1 - uniform to get range to (0-1]
-    const u = 1 - self.uniform();
-    const v = 1 - self.uniform();
+    const u = 1 - this.uniform();
+    const v = 1 - this.uniform();
     return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   }
 }
 
+interface Point {
+  x: number, y: number;
+}
+
 class UI {
-  constructor(simulation, canvas) {
+  radius: number;
+  canvas: HTMLCanvasElement;
+  p: Point;
+  constructor(simulation: Simulation, canvas: HTMLCanvasElement) {
     console.log(canvas);
     this.radius = 50;
     //
@@ -29,7 +37,7 @@ class UI {
     };
     // sliders
     document.getElementById('G').onchange = function (e) {
-      simulation.g = e.target.value;
+      simulation.g = Number((e.target as HTMLInputElement).value);
     };
   }
   render() {
@@ -49,9 +57,9 @@ function run() {
   const simulation = new Simulation();
   simulation.add(0, -20, 5.0, 0, 1000.1);
   simulation.add(0, 20, -5.0, 0, 1000.1);
-  simulation.g = document.getElementById('G').value;
-  const ui = new UI(simulation, document.getElementById('target'));
-  function frame(t) {
+  simulation.g = Number((document.getElementById('G') as HTMLInputElement).value);
+  const ui = new UI(simulation, document.getElementById('target') as HTMLCanvasElement);
+  function frame(t: number) {
     render("target", simulation);
     ui.render();
     step(simulation, 0.1);

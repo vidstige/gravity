@@ -1,0 +1,24 @@
+{
+  "name": "gravity",
+  "version": "1.0.0",
+  "description": "Graivty simulation in rust, using Barnes-Hut tree optimization and parallel computing using rayon.",
+  "main": "index.js",
+  "scripts": {
+    "start": "parcel index.html",
+    "bundle": "parcel build index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vidstige/gravity.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vidstige/gravity/issues"
+  },
+  "homepage": "https://github.com/vidstige/gravity#readme",
+  "dependencies": {
+    "parcel": "^2.6.1"
+  }
+}

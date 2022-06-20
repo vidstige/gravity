@@ -18,12 +18,12 @@ First build with the web target
 
     wasm-pack build --target web
 
-Then start a webserver. I recommend the rust devserver
+Then build and run the web app
 
-    cargo install devserver
-    devserver
+    cd ui/
+    npm install && npm start
 
-Finally, load [the page](http://localhost:8080/) (this link is using port 8080 which is the default devserver port).
+Finally, load [the page](http://localhost:1234/)
 
 ## author
 vidstige

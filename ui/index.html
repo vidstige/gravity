@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>gravity</title>
+    <script type="module" src="app.js"></script>
+    <style>
+      ul { list-style-type: none; }
+      canvas#target { cursor: none; }
+    </style>
+  </head>
+  <body>
+    <div style="float: left;">
+      <canvas id="target" width="800" height="800"></canvas>
+    </div>
+    <div style="float: left;">
+      <ul>
+        <li><button selected>navigate</button></li>
+        <li><button>create</button></li>
+        <li><button>delete</button></li>
+        <li><button>orbit</button></li>
+      </ul>
+    </div>
+    <div style="clear: both;">
+      <p>
+        <label for="id">G</label><input id="G" type="range" min="0" max="1.0" step="0.01" value="0.65"/>
+      </p> 
+    </div>
+  </body>
+</html>

@@ -23,17 +23,42 @@ interface Point {
   x: number, y: number;
 }
 
+abstract class Mode {
+  simulation: Simulation;
+  constructor(simulation: Simulation) {
+    this.simulation = simulation;
+  }
+  abstract drag(p: Point, r: number);
+}
+
+class Create extends Mode {
+  drag(p: Point, r: number) {
+    console.log(p, r);
+    this.simulation.add(0, 20, -5.0, 0, 1000.1);
+  }
+}
+
 class UI {
   radius: number;
   canvas: HTMLCanvasElement;
   p: Point;
+  mode: Mode;
+  dragging: boolean;
   constructor(simulation: Simulation, canvas: HTMLCanvasElement) {
     console.log(canvas);
+    this.mode = new Create(simulation);
+    this.dragging = false;
     this.radius = 50;
     //
     this.canvas = canvas;
+    this.canvas.onmousedown = e => { this.dragging = true; };
+    this.canvas.onmouseup = e => { this.dragging = false; };
     this.canvas.onmousemove = e => {
+      // save for rendering cursor
       this.p = getPosition(this.canvas, e);
+      if (this.dragging) {
+        this.mode.drag(this.p, this.radius);
+      }
     };
     // sliders
     document.getElementById('G').onchange = function (e) {
@@ -42,14 +67,14 @@ class UI {
   }
   render() {
     if (!this.p) return;
-      const ctx = this.canvas.getContext('2d');
-      ctx.resetTransform();
-      ctx.beginPath();
-      ctx.arc(this.p.x, this.p.y, this.radius, 0, 2 * Math.PI, false);
+    const ctx = this.canvas.getContext('2d');
+    ctx.resetTransform();
+    ctx.beginPath();
+    ctx.arc(this.p.x, this.p.y, this.radius, 0, 2 * Math.PI, false);
 
-      ctx.lineWidth = 1.0;
-      ctx.strokeStyle = 'black';
-      ctx.stroke();
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = 'black';
+    ctx.stroke();
   }
 }
 

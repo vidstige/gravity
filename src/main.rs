@@ -1,10 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use eframe::{egui::{self, Ui}, epaint::{Color32, Pos2, Vec2, Stroke}};
+use std::cmp::max;
+
+use eframe::{egui::{self, Ui, Sense, Id, PointerButton}, epaint::{Color32, Pos2, Vec2, Stroke, Rect}};
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 768.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -24,14 +26,26 @@ impl Field {
     }
 }
 
+#[derive(PartialEq)]
+enum Mode {
+    Add,
+    Remove,
+}
+
 struct GravityApp {
     field: Field,
+    mode: Mode,
+    radius: f32,
+    orbital_velocity: bool,
 }
 
 impl Default for GravityApp {
     fn default() -> Self {
         Self {
             field: Field {  },
+            mode: Mode::Add,
+            radius: 64.0,
+            orbital_velocity: true,
         }
     }
 }
@@ -56,21 +70,35 @@ fn draw(ui: &mut Ui, field: &Field, spacing: Vec2) {
 
 impl eframe::App for GravityApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let id = Id::new("scroll_area");
         let spacing = Vec2::new(32.0, 32.0);
+        egui::SidePanel::right("control_panel").show(ctx, |ui| {
+            ui.vertical(|ui| {
+                ui.selectable_value(&mut self.mode, Mode::Add, "Add");
+                ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
+            });
+            if self.mode == Mode::Add {
+                ui.checkbox(&mut self.orbital_velocity, "orbital velocity");
+            }
+        });
         egui::CentralPanel::default().show(ctx, |ui| {
             draw(ui, &self.field, spacing);
-            /*
-            ui.heading("Gravity");ui.horizontal(|ui| {
-                let name_label = ui.label("Your name: ");
-                ui.text_edit_singleline(&mut self.name)
-                    .labelled_by(name_label.id);
-            });
-            ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
-            if ui.button("Click each year").clicked() {
-                self.age += 1;
+            let rect = Rect::from_min_size(Pos2::ZERO, ui.available_size());
+            
+            ui.input(|i| self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0));
+
+            let response = ui.interact(rect, id, Sense::hover());
+            if let Some(hover_pos) = response.hover_pos() {
+                let stroke = Stroke { width: 1.0, color: Color32::WHITE};
+                ui.painter().circle(hover_pos, self.radius, Color32::TRANSPARENT, stroke);
             }
-            ui.label(format!("Hello '{}', age {}", self.name, self.age));*/
-           
+            
+            let response = ui.interact(rect, id, Sense::click());
+            if response.clicked() {
+                if let Some(pointer_pos) = response.interact_pointer_pos() {
+                    println!("{:?}", pointer_pos);
+                }
+            }
         });
     }
 }

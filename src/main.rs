@@ -3,7 +3,7 @@
 use std::f32::consts::TAU;
 use rand::prelude::*;
 
-use eframe::{egui::{self, Ui, Sense, Id}, epaint::{Color32, Pos2, Vec2, Stroke, Rect}};
+use eframe::{egui::{self, Ui, Sense, Id}, epaint::{Color32, Pos2, Vec2, Stroke, Rect}, emath::NumExt};
 use gravity::Simulation;
 use gravity;
 
@@ -28,6 +28,7 @@ enum Mode {
 struct GravityApp {
     rng: rand::rngs::ThreadRng,
     simulation: Simulation,
+    play: bool,
     mode: Mode,
     radius: f32,
     orbital_velocity: bool,
@@ -38,6 +39,7 @@ impl Default for GravityApp {
         Self {
             rng: rand::thread_rng(),
             simulation: Simulation::new(),
+            play: false,
             mode: Mode::Add,
             radius: 64.0,
             orbital_velocity: true,
@@ -83,9 +85,12 @@ fn convert(v: Vec2) -> gravity::Vec2<f32> {
 
 impl eframe::App for GravityApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let id = Id::new("scroll_area");
         let spacing = Vec2::new(32.0, 32.0);
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
+            ui.vertical(|ui| {
+                ui.checkbox(&mut self.play, "play");
+            });
+            ui.separator();
             ui.vertical(|ui| {
                 ui.selectable_value(&mut self.mode, Mode::Add, "Add");
                 ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
@@ -94,8 +99,20 @@ impl eframe::App for GravityApp {
                 ui.checkbox(&mut self.orbital_velocity, "orbital velocity");
             }
         });
+        let id = Id::new("gravity_view");
         egui::CentralPanel::default().show(ctx, |ui| {
+            if self.play {
+                // take a time step
+                let dt = ui.input(|i| i.unstable_dt).at_most(1.0 / 30.0);
+                gravity::step(&mut self.simulation, dt);
+    
+                // request a new timestep
+                ui.ctx().request_repaint();
+                //self.time += ;
+            };
+
             draw(ui, &self.simulation, spacing);
+
             let rect = Rect::from_min_size(Pos2::ZERO, ui.available_size());
             
             ui.input(|i| self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0));

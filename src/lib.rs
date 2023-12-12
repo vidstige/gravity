@@ -253,7 +253,7 @@ fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<(f32, f32
     State{positions: q, velocities: v}
 }
 
-fn step(simulation: &mut Simulation, dt: f32) {
+pub fn step(simulation: &mut Simulation, dt: f32) {
     //let euler = vec!((1.0, 1.0));
     //let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
     let ruth3 = vec!(

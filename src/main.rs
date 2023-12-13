@@ -27,19 +27,31 @@ enum Mode {
 
 // Transforms world cordinates to screen cordinates (and back)
 struct FromWorld {
+    offset: Vec2,
     scale: f32,
 }
 
 impl FromWorld {
     fn transform(&self, position: &gravity::Vec2<f32>) -> Pos2 {
-        Pos2::new(self.scale * position.x, self.scale * position.y)
+        Pos2::new(self.scale * position.x, self.scale * position.y) + self.offset
     }
     
-    fn inverse(&self, position: &Pos2) -> gravity::Vec2<f32> {
-        gravity::Vec2 { x: position.x / self.scale, y: position.y / self.scale }
+    fn inverse(&self, position: Pos2) -> gravity::Vec2<f32> {
+        let p = position - self.offset;
+        gravity::Vec2 { x: p.x / self.scale, y: p.y / self.scale }
     }
     fn inversef(&self, f: f32) -> f32 {
         f / self.scale
+    }
+
+    fn pan(&mut self, drag_delta: Vec2) {
+        self.offset += drag_delta;
+    }
+
+    fn zoom(&mut self, zoom_delta: f32, hover_pos: Pos2) {
+        let old_scale = self.scale;
+        self.scale *= zoom_delta.sqrt();
+        self.offset = hover_pos - self.scale / old_scale * (hover_pos - self.offset);
     }
 }
 
@@ -58,7 +70,7 @@ impl Default for GravityApp {
         Self {
             rng: rand::thread_rng(),
             simulation: Simulation::new(),
-            from_world: FromWorld { scale: 10.0 },
+            from_world: FromWorld { offset: Vec2::ZERO, scale: 10.0 },
             play: false,
             mode: Mode::Add,
             radius: 64.0,
@@ -131,14 +143,15 @@ impl eframe::App for GravityApp {
             let rect = Rect::from_min_size(Pos2::ZERO, ui.available_size());
             
             ui.input(|i| {
-                println!("delta: {}", i.scroll_delta.y);
-                self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0);
-                /*if i.modifiers.ctrl {
-                    self.from_world.scale += i.scroll_delta.y;
-                    println!("zoom: {}", self.from_world.scale);
-                } else {
-                    self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0)
-                }*/
+                // control zoom
+                if let Some(hover_pos) = i.pointer.hover_pos() {
+                    self.from_world.zoom(i.zoom_delta(), hover_pos);
+                }
+                // control circle with mouse
+                if i.scroll_delta != Vec2::ZERO {
+                    println!("delta: {}", i.scroll_delta.y);
+                    self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0);
+                }
             });
 
             draw(ui, &self.simulation, spacing, &self.from_world);
@@ -156,10 +169,10 @@ impl eframe::App for GravityApp {
                         Mode::Add => {
                             let position = pointer_pos + random_point_in_circle(&mut self.rng, self.radius).to_vec2();
                             let velocity = gravity::Vec2::zero();
-                            self.simulation.add(&self.from_world.inverse(&position), &velocity, 1.0);
+                            self.simulation.add(&self.from_world.inverse(position), &velocity, 1.0);
                         },
                         Mode::Remove => {
-                            let center = self.from_world.inverse(&pointer_pos);
+                            let center = self.from_world.inverse(pointer_pos);
                             let r = self.from_world.inversef(self.radius);
                             let r2 = r * r;
                             let mut indices = self.simulation.state.positions
@@ -175,6 +188,9 @@ impl eframe::App for GravityApp {
                         }                            
                     }
                 }
+            }
+            if response.dragged_by(egui::PointerButton::Secondary) {
+                self.from_world.pan(response.drag_delta());
             }
         });
     }

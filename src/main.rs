@@ -27,15 +27,15 @@ enum Mode {
 
 // Transforms world cordinates to screen cordinates (and back)
 struct FromWorld {
-    
+    scale: f32,
 }
 
 impl FromWorld {
     fn transform(&self, position: &gravity::Vec2<f32>) -> Pos2 {
-        Pos2::new(position.x, position.y)
+        Pos2::new(self.scale * position.x, self.scale * position.y)
     }
     fn inverse(&self, position: &Pos2) -> gravity::Vec2<f32> {
-        gravity::Vec2 { x: position.x, y: position.y }
+        gravity::Vec2 { x: position.x / self.scale, y: position.y / self.scale }
     }
 }
 
@@ -54,7 +54,7 @@ impl Default for GravityApp {
         Self {
             rng: rand::thread_rng(),
             simulation: Simulation::new(),
-            from_world: FromWorld {  },
+            from_world: FromWorld { scale: 10.0 },
             play: false,
             mode: Mode::Add,
             radius: 64.0,

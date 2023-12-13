@@ -25,9 +25,24 @@ enum Mode {
     Remove,
 }
 
+// Transforms world cordinates to screen cordinates (and back)
+struct FromWorld {
+    
+}
+
+impl FromWorld {
+    fn transform(&self, position: &gravity::Vec2<f32>) -> Pos2 {
+        Pos2::new(position.x, position.y)
+    }
+    fn inverse(&self, position: &Pos2) -> gravity::Vec2<f32> {
+        gravity::Vec2 { x: position.x, y: position.y }
+    }
+}
+
 struct GravityApp {
     rng: rand::rngs::ThreadRng,
     simulation: Simulation,
+    from_world: FromWorld,
     play: bool,
     mode: Mode,
     radius: f32,
@@ -39,6 +54,7 @@ impl Default for GravityApp {
         Self {
             rng: rand::thread_rng(),
             simulation: Simulation::new(),
+            from_world: FromWorld {  },
             play: false,
             mode: Mode::Add,
             radius: 64.0,
@@ -47,7 +63,7 @@ impl Default for GravityApp {
     }
 }
 
-fn draw(ui: &mut Ui, simulation: &Simulation, spacing: Vec2) {
+fn draw(ui: &mut Ui, simulation: &Simulation, spacing: Vec2, from_world: &FromWorld) {
     let size = ui.available_size();
     
     // draw grid
@@ -69,22 +85,19 @@ fn draw(ui: &mut Ui, simulation: &Simulation, spacing: Vec2) {
     // draw masses
     let color = Color32::from_rgba_premultiplied(00, 0x8b, 0x8b, 0x40);
     for position in simulation.state.positions.iter() {
-        painter.circle_filled(Pos2::new(position.x, position.y), 3.0, color);
+        painter.circle_filled(from_world.transform(position), 3.0, color);
     }
 }
 
-fn random_point_in_circle(rng: &mut ThreadRng, radius: f32) -> Vec2 {
+fn random_point_in_circle(rng: &mut ThreadRng, radius: f32) -> Pos2 {
     let r = radius * rng.gen::<f32>().sqrt();
     let theta = rng.gen::<f32>() * TAU;
-    Vec2::new(r * theta.cos(), r * theta.sin())
-}
-
-fn convert(v: Vec2) -> gravity::Vec2<f32> {
-    gravity::Vec2 { x: v.x, y: v.y }
+    Pos2::new(r * theta.cos(), r * theta.sin())
 }
 
 impl eframe::App for GravityApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+
         let spacing = Vec2::new(32.0, 32.0);
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
@@ -111,7 +124,7 @@ impl eframe::App for GravityApp {
                 //self.time += ;
             };
 
-            draw(ui, &self.simulation, spacing);
+            draw(ui, &self.simulation, spacing, &self.from_world);
 
             let rect = Rect::from_min_size(Pos2::ZERO, ui.available_size());
             
@@ -124,16 +137,16 @@ impl eframe::App for GravityApp {
             }
             
             let response = ui.interact(rect, id, Sense::click_and_drag());
-            if response.dragged() {
+            if response.dragged_by(egui::PointerButton::Primary) {
                 if let Some(pointer_pos) = response.interact_pointer_pos() {
                     match self.mode {
                         Mode::Add => {
-                            let position = random_point_in_circle(&mut self.rng, self.radius) + pointer_pos.to_vec2();
+                            let position = pointer_pos + random_point_in_circle(&mut self.rng, self.radius).to_vec2();
                             let velocity = gravity::Vec2::zero();
-                            self.simulation.add(&convert(position), &velocity, 1.0);
+                            self.simulation.add(&self.from_world.inverse(&position), &velocity, 1.0);
                         },
                         Mode::Remove => {
-                            let center = convert(pointer_pos.to_vec2());
+                            let center = self.from_world.inverse(&pointer_pos);
                             let r2 = self.radius * self.radius;
                             let mut indices = self.simulation.state.positions
                                 .iter()

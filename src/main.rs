@@ -34,8 +34,12 @@ impl FromWorld {
     fn transform(&self, position: &gravity::Vec2<f32>) -> Pos2 {
         Pos2::new(self.scale * position.x, self.scale * position.y)
     }
+    
     fn inverse(&self, position: &Pos2) -> gravity::Vec2<f32> {
         gravity::Vec2 { x: position.x / self.scale, y: position.y / self.scale }
+    }
+    fn inversef(&self, f: f32) -> f32 {
+        f / self.scale
     }
 }
 
@@ -124,11 +128,20 @@ impl eframe::App for GravityApp {
                 //self.time += ;
             };
 
-            draw(ui, &self.simulation, spacing, &self.from_world);
-
             let rect = Rect::from_min_size(Pos2::ZERO, ui.available_size());
             
-            ui.input(|i| self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0));
+            ui.input(|i| {
+                println!("delta: {}", i.scroll_delta.y);
+                self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0);
+                /*if i.modifiers.ctrl {
+                    self.from_world.scale += i.scroll_delta.y;
+                    println!("zoom: {}", self.from_world.scale);
+                } else {
+                    self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0)
+                }*/
+            });
+
+            draw(ui, &self.simulation, spacing, &self.from_world);
 
             let response = ui.interact(rect, id, Sense::hover());
             if let Some(hover_pos) = response.hover_pos() {
@@ -147,7 +160,8 @@ impl eframe::App for GravityApp {
                         },
                         Mode::Remove => {
                             let center = self.from_world.inverse(&pointer_pos);
-                            let r2 = self.radius * self.radius;
+                            let r = self.from_world.inversef(self.radius);
+                            let r2 = r * r;
                             let mut indices = self.simulation.state.positions
                                 .iter()
                                 .enumerate()

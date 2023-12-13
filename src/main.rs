@@ -149,7 +149,6 @@ impl eframe::App for GravityApp {
                 }
                 // control circle with mouse
                 if i.scroll_delta != Vec2::ZERO {
-                    println!("delta: {}", i.scroll_delta.y);
                     self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0);
                 }
             });
@@ -168,8 +167,13 @@ impl eframe::App for GravityApp {
                     match self.mode {
                         Mode::Add => {
                             let position = pointer_pos + random_point_in_circle(&mut self.rng, self.radius).to_vec2();
-                            let velocity = gravity::Vec2::zero();
-                            self.simulation.add(&self.from_world.inverse(position), &velocity, 1.0);
+                            let p = self.from_world.inverse(position);
+                            let velocity = if self.orbital_velocity {
+                                gravity::orbital_velocity(&self.simulation.center_of_mass(), &p)
+                            } else {
+                                gravity::Vec2::zero()
+                            };
+                            self.simulation.add(&p, &velocity, 1.0);
                         },
                         Mode::Remove => {
                             let center = self.from_world.inverse(pointer_pos);

@@ -1,5 +1,5 @@
 
-use std::f64::consts::TAU;
+use std::{f64::consts::TAU, iter::zip};
 
 use probability::prelude::*;
 use rayon::prelude::*;
@@ -183,6 +183,16 @@ impl Simulation {
         self.state.velocities.remove(index);
         self.masses.remove(index);
     }
+    pub fn center_of_mass(&self) -> (Vec2<f32>, f32) {
+        let mut mass = 0.0;
+        let mut cm = Vec2::zero();
+        for (p, m) in zip(self.state.positions.iter(), self.masses.iter()) {
+            mass += m;
+            cm = cm.add(&p.scale(*m));
+        }
+        cm = cm.scale(1.0 / mass);
+        (cm, mass)
+    }
     fn energy(&self, theta: f32) -> f32 {
         let items: Vec<_> = self.state.positions.iter().map(|x| *x).zip(self.masses.iter().map(|x| *x)).collect();
         let kinetic: f32 = items.iter().map(|(v, m)| m * v.norm2()).sum();
@@ -272,22 +282,14 @@ pub fn step(simulation: &mut Simulation, dt: f32) {
 }
 
 // computes the velocities needed to maintain orbits
-fn orbital_velocity(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
-    // compute total mass and center of mass
-    let mut mass = 0.0;
-    let mut cm = Vec2::zero();
-    for (p, m) in items {
-        mass += m;
-        cm = cm.add(&p.scale(*m));
+pub fn orbital_velocity((center, mass): &(Vec2<f32>, f32), p: &Vec2<f32>) -> Vec2<f32> {
+    if mass == &0.0 {
+        return Vec2::zero();
     }
-    cm = cm.scale(1.0 / mass);
-
-    items.iter().map(|(p, _)| {
-        let delta = p.sub(&cm);
-        let r = delta.norm2().sqrt();
-        let vo = (G * mass / r).sqrt();
-        delta.cross().scale(vo / r)
-    }).collect()
+    let delta = p.sub(&center);
+    let r = delta.norm2().sqrt();
+    let vo = (G * mass / r).sqrt();
+    delta.cross().scale(vo / r)
 }
 
 fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
@@ -322,8 +324,9 @@ fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocit
     let items: Vec<_> = random_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     //let items: Vec<_> = spiral_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
     // add black hole
-    let velocities = orbital_velocity(&items);
-    for ((p, m), v) in items.iter().zip(velocities.iter())  {
+    let center_of_mass = simulation.center_of_mass();
+    for (p, m) in items.iter() {
+        let v = orbital_velocity(&center_of_mass, p);
         simulation.add(p, &v.add(velocity), *m);
     }
     simulation.add(center, &velocity, black_hole_mass);

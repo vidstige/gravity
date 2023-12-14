@@ -166,13 +166,8 @@ impl GravityApp {
 fn draw_grid(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld, target_spacing: Vec2) {
     let size = ui.available_size();
 
-    let mut spacing = target_spacing * from_world.scale;
-
-    while spacing.x > 2.0 * target_spacing.x { spacing.x *= 0.5; }
-    while spacing.x < 2.0 * target_spacing.x { spacing.x *= 2.0; }
-
-    while spacing.y > 2.0 * target_spacing.y { spacing.y *= 0.5; }
-    while spacing.y < 2.0 * target_spacing.y { spacing.y *= 2.0; }
+    let spacing_scale = from_world.scale / (2.0 as f32).powi(from_world.scale.log2() as i32);
+    let spacing = target_spacing * spacing_scale;
 
     let color = Color32::from_rgb(00, 0x8b, 0x8b);
     let stroke = Stroke { width: 1.0, color};

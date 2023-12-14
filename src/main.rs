@@ -132,7 +132,9 @@ impl eframe::App for GravityApp {
             ui.vertical(|ui| {
                 ui.checkbox(&mut self.play.on, "play");
                 ui.checkbox(&mut self.simulation.barnes_hut, "barnes hut");
-                ui.add(egui::Slider::new(&mut self.simulation.theta, 0.0..=100.0).text("theta"));
+                if self.simulation.barnes_hut {
+                    ui.add(egui::Slider::new(&mut self.simulation.theta, 0.0..=100.0).text("theta"));
+                }
                 
                 ui.label("Symplectic integrator");
                 if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::euler(), "Euler")).clicked() {

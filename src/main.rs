@@ -19,10 +19,20 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+type StarSet = Vec<usize>;
+
 #[derive(PartialEq)]
 enum Mode {
     Add,
     Remove,
+}
+
+#[derive(PartialEq)]
+enum AddMode {
+    Single,
+    Uniform,
+    Gaussian,
+    Spiral,
 }
 
 // Transforms world cordinates to screen cordinates (and back)
@@ -78,6 +88,8 @@ struct GravityApp {
     radius: f32,
     // create mode parameters
     orbital_velocity: bool,
+    add_mode: AddMode,
+    mass: f32,
 }
 
 impl Default for GravityApp {
@@ -90,7 +102,22 @@ impl Default for GravityApp {
             mode: Mode::Add,
             radius: 64.0,
             orbital_velocity: true,
+            add_mode: AddMode::Uniform,
+            mass: 1.0,
         }
+    }
+}
+impl GravityApp {
+    fn select(&self, pointer: Pos2) -> StarSet {
+        let center = self.from_world.inverse(pointer);
+        let r = self.from_world.inversef(self.radius);
+        let r2 = r * r;
+        self.simulation.state.positions
+            .iter()
+            .enumerate()
+            .filter(|(_, &p)| p.sub(&center).norm2() < r2)
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>()
     }
 }
 
@@ -159,11 +186,16 @@ impl eframe::App for GravityApp {
             ui.separator();
             ui.vertical(|ui| {
                 ui.selectable_value(&mut self.mode, Mode::Add, "Add");
+                if self.mode == Mode::Add {
+                    ui.checkbox(&mut self.orbital_velocity, "orbital velocity");
+                    ui.add(egui::Slider::new(&mut self.mass, 0.1..=100.0).text("mass"));
+                    ui.radio_value(&mut self.add_mode, AddMode::Single, "Single");
+                    ui.radio_value(&mut self.add_mode, AddMode::Uniform, "Uniform");
+                    ui.radio_value(&mut self.add_mode, AddMode::Gaussian, "Gaussian");
+                    ui.radio_value(&mut self.add_mode, AddMode::Spiral, "Spiral");
+                }
                 ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
             });
-            if self.mode == Mode::Add {
-                ui.checkbox(&mut self.orbital_velocity, "orbital velocity");
-            }
         });
         let id = Id::new("gravity_view");
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -205,6 +237,11 @@ impl eframe::App for GravityApp {
             }
             
             let response = ui.interact(rect, id, Sense::click_and_drag());
+            if response.clicked_by(egui::PointerButton::Primary) {
+                if self.mode == Mode::Add && self.add_mode == AddMode::Single {
+
+                }
+            }
             if response.dragged_by(egui::PointerButton::Primary) {
                 if let Some(pointer_pos) = response.interact_pointer_pos() {
                     match self.mode {
@@ -212,22 +249,15 @@ impl eframe::App for GravityApp {
                             let position = pointer_pos + random_point_in_circle(&mut self.rng, self.radius).to_vec2();
                             let p = self.from_world.inverse(position);
                             let velocity = if self.orbital_velocity {
-                                gravity::orbital_velocity(&self.simulation.center_of_mass(), &p)
+                                let indices = self.select(pointer_pos);
+                                gravity::orbital_velocity(&self.simulation.center_of_mass(&indices), &p)
                             } else {
                                 gravity::Vec2::zero()
                             };
-                            self.simulation.add(&p, &velocity, 1.0);
+                            self.simulation.add(&p, &velocity, self.mass);
                         },
                         Mode::Remove => {
-                            let center = self.from_world.inverse(pointer_pos);
-                            let r = self.from_world.inversef(self.radius);
-                            let r2 = r * r;
-                            let mut indices = self.simulation.state.positions
-                                .iter()
-                                .enumerate()
-                                .filter(|(_, &p)| p.sub(&center).norm2() < r2)
-                                .map(|(index, _)| index)
-                                .collect::<Vec<_>>();
+                            let mut indices = self.select(pointer_pos);
                             indices.reverse();
                             for index in indices {
                                 self.simulation.remove(index);

@@ -212,12 +212,12 @@ impl Simulation {
         self.state.velocities.remove(index);
         self.masses.remove(index);
     }
-    pub fn center_of_mass(&self) -> (Vec2<f32>, f32) {
+    pub fn center_of_mass(&self, indices: &Vec<usize>) -> (Vec2<f32>, f32) {
         let mut mass = 0.0;
         let mut cm = Vec2::zero();
-        for (p, m) in zip(self.state.positions.iter(), self.masses.iter()) {
+        for (p, m) in indices.iter().map(|i| (self.state.positions[*i], self.masses[*i])) {
             mass += m;
-            cm = cm.add(&p.scale(*m));
+            cm = cm.add(&p.scale(m));
         }
         cm = cm.scale(1.0 / mass);
         (cm, mass)
@@ -308,6 +308,7 @@ pub fn orbital_velocity((center, mass): &(Vec2<f32>, f32), p: &Vec2<f32>) -> Vec
     delta.cross().scale(vo / r)
 }
 
+/*
 fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
     let mut source = source::default().seed([1337, 1337]);
     let distribution = Gaussian::new(0.0, radius.sqrt());
@@ -348,3 +349,4 @@ fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocit
     simulation.add(center, &velocity, black_hole_mass);
 }
 
+*/

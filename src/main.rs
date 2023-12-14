@@ -176,17 +176,37 @@ fn draw_grid(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld, targe
     let o = Vec2::new(from_world.offset.x % spacing.x, from_world.offset.y % spacing.y);
 
     let grid_size = size / spacing;
-    let (grid_width, grid_height) = (grid_size.x as i32, grid_size.y as i32);
-    let d10 = Vec2::new(spacing.x, 0.0);
-    let d01 = Vec2::new(0.0, spacing.y);
-    for y in -1..grid_height + 1 {
-        for x in -1..grid_width + 1 {
-            let p = Pos2::new(x as f32 * spacing.x, y as f32 * spacing.y) + o;
-            painter.line_segment([p, p + d10], stroke);
-            painter.line_segment([p, p + d01], stroke);
+    let (grid_width, grid_height) = (grid_size.x as usize + 2, grid_size.y as usize + 2);
+    
+    // compute screen cordinates
+    let mut screen: Vec<Pos2> = Vec::with_capacity(grid_height * grid_width);
+    for y in 0..grid_height {
+        for x in 0..grid_width {
+            let p = Pos2::new((x as f32 - 1.0) * spacing.x, (y as f32 - 1.0) * spacing.y) + o;
+            screen.push(p);
         }
     }
+
+    // compute world points
+    //let world: Vec<_> = screen.iter().map(|p| from_world.inverse(*p)).collect();
+
+    // compute gravitational field value at world points
+    //let field = simulation.field(&world);
+    // find highest field norm
+    //let high = field.iter().map(|f| f.norm2()).max_by(|a, b| b.partial_cmp(a).unwrap()).unwrap().sqrt();
     
+    let d10 = Vec2::new(spacing.x, 0.0);
+    let d01 = Vec2::new(0.0, spacing.y);
+    let mut i = 0;
+    for y in 0..grid_height {
+        for x in 0..grid_width {
+            let p = screen[i];
+            painter.line_segment([p, p + d10], stroke);
+            painter.line_segment([p, p + d01], stroke);
+
+            i += 1;
+        }
+    }
 }
 
 fn draw_stars(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld) {
@@ -200,7 +220,7 @@ fn draw_stars(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld) {
 impl eframe::App for GravityApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
-        let spacing = Vec2::new(32.0, 32.0);
+        let spacing = Vec2::new(64.0, 64.0);
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
                 ui.checkbox(&mut self.play.on, "play");

@@ -1,6 +1,9 @@
 # gravity
 Graivty simulation in rust, using Barnes-Hut tree optimization and parallel computing using rayon.
 
+## Try online
+https://vidstige.github.io/gravity/
+
 ## examples
 
 ![gravity simulation](gifs/7.gif)

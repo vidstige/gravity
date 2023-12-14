@@ -82,6 +82,7 @@ struct GravityApp {
     from_world: FromWorld,
     // play parameters
     play: Play,
+    coefficients: Vec<(Vec<(f32, f32)>, String)>,
     // mode
     mode: Mode,
     radius: f32,
@@ -114,6 +115,12 @@ impl Default for GravityApp {
             simulation: Simulation::new(),
             from_world: FromWorld { offset: Vec2::ZERO, scale: 10.0 },
             play: Play::new(),
+            coefficients: vec![
+                (gravity::euler(), "Euler".to_owned()),
+                (gravity::leap2(), "Leap 2".to_owned()),
+                (gravity::ruth3(), "Ruth 3".to_owned()),
+                (gravity::ruth4(), "Ruth 4".to_owned()),
+            ],
             mode: Mode::Add,
             radius: 64.0,
             orbital_velocity: true,
@@ -194,25 +201,20 @@ impl eframe::App for GravityApp {
                 ui.add(egui::Slider::new(&mut self.play.speed, -1.0..=10.0).text("speed"));
                 ui.add(egui::Slider::new(&mut self.play.steps, 1..=10).text("sub-stepping"));
 
+                ui.add(egui::Slider::new(&mut self.simulation.g, 0.1..=10.0).text("G"));
+                ui.add(egui::Slider::new(&mut self.simulation.softening, 0.0..=10.0).text("softening (m)"));
+
                 ui.checkbox(&mut self.simulation.barnes_hut, "barnes hut");
                 if self.simulation.barnes_hut {
                     ui.add(egui::Slider::new(&mut self.simulation.theta, 0.0..=100.0).text("theta"));
                 }
                 
                 ui.label("Symplectic integrator");
-                if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::euler(), "Euler")).clicked() {
-                    self.simulation.coefficients = gravity::euler();
+                for (coefficients, name) in self.coefficients.iter() {
+                    if ui.add(egui::RadioButton::new(&self.simulation.coefficients == coefficients, name)).clicked() {
+                        self.simulation.coefficients = coefficients.to_owned();
+                    }
                 }
-                if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::leap2(), "Leap 2")).clicked() {
-                    self.simulation.coefficients = gravity::leap2();
-                }
-                if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::ruth3(), "Ruth 3")).clicked() {
-                    self.simulation.coefficients = gravity::ruth3();
-                }
-                if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::ruth4(), "Ruth 4")).clicked() {
-                    self.simulation.coefficients = gravity::ruth4();
-                }
-
             });
             ui.separator();
             ui.vertical(|ui| {

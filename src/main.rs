@@ -35,6 +35,13 @@ enum AddMode {
     Spiral,
 }
 
+#[derive(PartialEq)]
+enum ForceMode {
+    Swoosh,
+    Orbital,
+    Attract,
+    Repel,
+}
 // Transforms world cordinates to screen cordinates (and back)
 struct FromWorld {
     offset: Vec2,
@@ -92,6 +99,10 @@ struct GravityApp {
     spiral_arms: usize,
     add_speed: usize,
     mass: f32,
+
+    // force mode parameters
+    force_mode: ForceMode,
+    force: f32,
 }
 
 // galaxies code
@@ -129,6 +140,8 @@ impl Default for GravityApp {
             spiral_arms: 5,
             add_speed: 1,
             mass: 1.0,
+            force_mode: ForceMode::Swoosh,
+            force: 0.005,
         }
     }
 }
@@ -243,6 +256,13 @@ impl eframe::App for GravityApp {
 
                 }
                 ui.selectable_value(&mut self.mode, Mode::Force, "Force");
+                if self.mode == Mode::Force {
+                    ui.radio_value(&mut self.force_mode, ForceMode::Swoosh, "Swoosh");
+                    ui.radio_value(&mut self.force_mode, ForceMode::Orbital, "Orbital");
+                    ui.radio_value(&mut self.force_mode, ForceMode::Attract, "Attract");
+                    ui.radio_value(&mut self.force_mode, ForceMode::Repel, "Repel");
+                    ui.add(egui::Slider::new(&mut self.force, 0.001..=0.01).logarithmic(true).text("strength"));
+                }
                 ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
             });
         });
@@ -305,13 +325,30 @@ impl eframe::App for GravityApp {
                         Mode::Force => {
                             let indices = self.select(pointer_pos);
                             // compute acceleration based on mouse movement
-
-                            let a = 0.01 * response.drag_delta() / self.from_world.scale / dt;
-                            println!("{:?}", a);
-                            for index in indices {
-                                self.simulation.state.velocities[index].x += a.x;
-                                self.simulation.state.velocities[index].y += a.y;
+                            match self.force_mode {
+                                ForceMode::Swoosh => {
+                                    let a = self.force * response.drag_delta() / self.from_world.scale / dt;
+                                    for index in indices {
+                                        self.simulation.state.velocities[index].x += a.x;
+                                        self.simulation.state.velocities[index].y += a.y;
+                                    }
+                                },
+                                ForceMode::Orbital => {
+                                    let cm = self.simulation.center_of_mass(&indices);
+                                    for index in indices {
+                                        let p = self.simulation.state.positions[index];
+                                        let v = gravity::orbital_velocity(&cm, &p, self.simulation.g);
+                                        self.simulation.state.velocities[index] = v;
+                                    }
+                                },
+                                ForceMode::Attract => {
+                                    let center = self.from_world.inverse(pointer_pos);
+                                },
+                                ForceMode::Repel => {
+                                    let center = self.from_world.inverse(pointer_pos);
+                                },
                             }
+                            
                         },
                     }
                 }

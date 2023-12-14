@@ -234,9 +234,9 @@ impl Simulation {
         // ruth3
         self.state = self.symplectic_step(dt, &self.coefficients);
     }
-    fn energy(&self, theta: f32) -> f32 {
-        let items: Vec<_> = self.state.positions.iter().map(|x| *x).zip(self.masses.iter().map(|x| *x)).collect();
-        let kinetic: f32 = items.iter().map(|(v, m)| m * v.norm2()).sum();
+    pub fn energy(&self) -> f32 {
+        let items: Vec<_> = zip(self.state.positions.iter().map(|x| *x), self.masses.iter().map(|x| *x)).collect();
+        let kinetic: f32 = zip(self.state.velocities.iter(), self.masses.iter()).map(|(v, m)| m * v.norm2()).sum();
 
         /*for i in 0..self.state.positions.len() - 1 {
             for j in i+1..self.state.positions.len() {
@@ -245,7 +245,7 @@ impl Simulation {
         }*/
         let tree = create_tree(&items);
         let potential: f32 = items.par_iter().map(|(p0, m0)|
-            tree.contributions(p0, theta).iter().map(|(p1, m1)| potential_energy((p0, m0), (p1, m1))).sum::<f32>()
+            tree.contributions(p0, self.theta).iter().map(|(p1, m1)| potential_energy((p0, m0), (p1, m1))).sum::<f32>()
         ).sum();
  
         kinetic + potential

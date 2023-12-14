@@ -274,6 +274,22 @@ impl eframe::App for GravityApp {
             // display energy
             ui.label(format!("E = {:.1}", self.simulation.energy()));
 
+            // keyboard interaction
+            ui.input(|i| {
+                if i.key_pressed(egui::Key::Space) {
+                    self.play.on ^= true;
+                }
+                if i.key_pressed(egui::Key::A) {
+                    self.mode = Mode::Add;
+                }
+                if i.key_pressed(egui::Key::D) {
+                    self.mode = Mode::Remove;
+                }
+                if i.key_pressed(egui::Key::F) {
+                    self.mode = Mode::Force;
+                }
+            });
+
             let response = ui.interact(rect, id, Sense::hover());
             if let Some(hover_pos) = response.hover_pos() {
                 let stroke = Stroke { width: 1.0, color: Color32::WHITE};

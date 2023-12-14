@@ -40,7 +40,6 @@ enum ForceMode {
     Swoosh,
     Orbital,
     Attract,
-    Repel,
 }
 // Transforms world cordinates to screen cordinates (and back)
 struct FromWorld {
@@ -260,7 +259,6 @@ impl eframe::App for GravityApp {
                     ui.radio_value(&mut self.force_mode, ForceMode::Swoosh, "Swoosh");
                     ui.radio_value(&mut self.force_mode, ForceMode::Orbital, "Orbital");
                     ui.radio_value(&mut self.force_mode, ForceMode::Attract, "Attract");
-                    ui.radio_value(&mut self.force_mode, ForceMode::Repel, "Repel");
                     ui.add(egui::Slider::new(&mut self.force, 0.001..=0.01).logarithmic(true).text("strength"));
                 }
                 ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
@@ -343,12 +341,14 @@ impl eframe::App for GravityApp {
                                 },
                                 ForceMode::Attract => {
                                     let center = self.from_world.inverse(pointer_pos);
-                                },
-                                ForceMode::Repel => {
-                                    let center = self.from_world.inverse(pointer_pos);
+                                    let tmp = self.force / (self.radius / self.from_world.scale) / dt;
+                                    for index in indices {
+                                        let a = center.sub(&self.simulation.state.positions[index]).scale(tmp);
+                                        self.simulation.state.velocities[index].x += a.x;
+                                        self.simulation.state.velocities[index].y += a.y;
+                                    }
                                 },
                             }
-                            
                         },
                     }
                 }

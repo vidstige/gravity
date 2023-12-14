@@ -193,6 +193,33 @@ impl Simulation {
         cm = cm.scale(1.0 / mass);
         (cm, mass)
     }
+    // Generic symplectic step for integrating hamiltonians
+    fn symplectic_step(&self, dt: f32, coefficents: &Vec<(f32, f32)>) -> State {
+        let mut q = self.state.positions.clone();
+        let mut v = self.state.velocities.clone();
+        for (c, d) in coefficents {
+            v = add_scaled(&v, c * dt, &acceleration(&self.state, &self.masses));
+            q = add_scaled(&q, d * dt, &v);
+        }
+        State{positions: q, velocities: v}
+    }
+    pub fn step(&mut self, dt: f32) {
+        //let euler = vec!((1.0, 1.0));
+        //let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
+        let ruth3 = vec!(
+            (2.0/3.0, 7.0/24.0),
+            (-2.0/3.0, 0.75),
+            (1.0, -1.0/24.0),
+        );
+        /*let c = (2.0 as f32).powf(1.0 / 3.0);
+        let ruth4 = vec!(
+            (0.5 / (2.0 - c), 0.0),
+            (0.5*(1.0-c)/ (2.0 - c), 1.0/ (2.0 - c)),
+            (0.5*(1.0-c)/ (2.0 - c), -c/ (2.0 - c)),
+            (0.5/ (2.0 - c), 1.0/ (2.0 - c)),
+        );*/
+        self.state = self.symplectic_step(dt, &ruth3);
+    }
     fn energy(&self, theta: f32) -> f32 {
         let items: Vec<_> = self.state.positions.iter().map(|x| *x).zip(self.masses.iter().map(|x| *x)).collect();
         let kinetic: f32 = items.iter().map(|(v, m)| m * v.norm2()).sum();
@@ -250,35 +277,6 @@ fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
     //let forces = gravity_direct(&items);
     let forces = gravity_barnes_hut(&items, THETA);
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
-}
-
-// Generic symplectic step for integrating hamiltonians
-fn symplectic_step(simulation: &Simulation, dt: f32, coefficents: &Vec<(f32, f32)>) -> State {
-    let mut q = simulation.state.positions.clone();
-    let mut v = simulation.state.velocities.clone();
-    for (c, d) in coefficents {
-        v = add_scaled(&v, c * dt, &acceleration(&simulation.state, &simulation.masses));
-        q = add_scaled(&q, d * dt, &v);
-    }
-    State{positions: q, velocities: v}
-}
-
-pub fn step(simulation: &mut Simulation, dt: f32) {
-    //let euler = vec!((1.0, 1.0));
-    //let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
-    let ruth3 = vec!(
-        (2.0/3.0, 7.0/24.0),
-        (-2.0/3.0, 0.75),
-        (1.0, -1.0/24.0),
-    );
-    /*let c = (2.0 as f32).powf(1.0 / 3.0);
-    let ruth4 = vec!(
-        (0.5 / (2.0 - c), 0.0),
-        (0.5*(1.0-c)/ (2.0 - c), 1.0/ (2.0 - c)),
-        (0.5*(1.0-c)/ (2.0 - c), -c/ (2.0 - c)),
-        (0.5/ (2.0 - c), 1.0/ (2.0 - c)),
-    );*/
-    simulation.state = symplectic_step(simulation, dt, &ruth3);
 }
 
 // computes the velocities needed to maintain orbits

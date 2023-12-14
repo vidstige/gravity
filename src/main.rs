@@ -133,7 +133,7 @@ impl eframe::App for GravityApp {
             if self.play {
                 // take a time step
                 let dt = ui.input(|i| i.unstable_dt).at_most(1.0 / 30.0);
-                gravity::step(&mut self.simulation, dt);
+                self.simulation.step(dt);
     
                 // request a new timestep
                 ui.ctx().request_repaint();

@@ -31,7 +31,6 @@ enum Mode {
 enum AddMode {
     Single,
     Uniform,
-    Gaussian,
     Spiral,
 }
 
@@ -92,6 +91,21 @@ struct GravityApp {
     mass: f32,
 }
 
+// galaxies code
+fn random_point_in_circle(rng: &mut ThreadRng, radius: f32) -> Pos2 {
+    let r = radius * rng.gen::<f32>().sqrt();
+    let theta = rng.gen::<f32>() * TAU;
+    Pos2::new(r * theta.cos(), r * theta.sin())
+}
+
+fn spiral_galaxy(rng: &mut ThreadRng, radius: f32, arms: f32) -> Pos2 {
+    let inner = 0.2 * radius;
+    let t = rng.gen::<f32>();
+    let a = arms * t * TAU;
+    let r = inner + t * (radius - inner);
+    Pos2::new(r * a.cos(), r * a.sin())
+}
+
 impl Default for GravityApp {
     fn default() -> Self {
         Self {
@@ -119,6 +133,13 @@ impl GravityApp {
             .map(|(index, _)| index)
             .collect::<Vec<_>>()
     }
+    fn sample(&mut self) -> Pos2 {
+        match self.add_mode {
+            AddMode::Single => Pos2::ZERO,
+            AddMode::Uniform => random_point_in_circle(&mut self.rng, self.radius),
+            AddMode::Spiral => spiral_galaxy(&mut self.rng, self.radius, 8.0),
+        }
+    }
 }
 
 fn draw(ui: &mut Ui, simulation: &Simulation, spacing: Vec2, from_world: &FromWorld) {
@@ -145,12 +166,6 @@ fn draw(ui: &mut Ui, simulation: &Simulation, spacing: Vec2, from_world: &FromWo
     for position in simulation.state.positions.iter() {
         painter.circle_filled(from_world.transform(position), 3.0, color);
     }
-}
-
-fn random_point_in_circle(rng: &mut ThreadRng, radius: f32) -> Pos2 {
-    let r = radius * rng.gen::<f32>().sqrt();
-    let theta = rng.gen::<f32>() * TAU;
-    Pos2::new(r * theta.cos(), r * theta.sin())
 }
 
 impl eframe::App for GravityApp {
@@ -195,7 +210,6 @@ impl eframe::App for GravityApp {
                     );
                     ui.radio_value(&mut self.add_mode, AddMode::Single, "Single");
                     ui.radio_value(&mut self.add_mode, AddMode::Uniform, "Uniform");
-                    ui.radio_value(&mut self.add_mode, AddMode::Gaussian, "Gaussian");
                     ui.radio_value(&mut self.add_mode, AddMode::Spiral, "Spiral");
                 }
                 ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
@@ -243,14 +257,15 @@ impl eframe::App for GravityApp {
             let response = ui.interact(rect, id, Sense::click_and_drag());
             if response.clicked_by(egui::PointerButton::Primary) {
                 if self.mode == Mode::Add && self.add_mode == AddMode::Single {
-
+                    
                 }
             }
             if response.dragged_by(egui::PointerButton::Primary) {
                 if let Some(pointer_pos) = response.interact_pointer_pos() {
                     match self.mode {
                         Mode::Add => {
-                            let position = pointer_pos + random_point_in_circle(&mut self.rng, self.radius).to_vec2();
+                            let relative_position = self.sample();
+                            let position = pointer_pos + relative_position.to_vec2();
                             let p = self.from_world.inverse(position);
                             let velocity = if self.orbital_velocity {
                                 let indices = self.select(pointer_pos);

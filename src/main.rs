@@ -3,7 +3,7 @@
 use std::f32::consts::TAU;
 use rand::prelude::*;
 
-use eframe::{egui::{self, Ui, Sense, Id}, epaint::{Color32, Pos2, Vec2, Stroke, Rect}, emath::NumExt};
+use eframe::{egui::{self, Ui, Sense, Id}, epaint::{Color32, Pos2, Vec2, Stroke, Rect}};
 use gravity::Simulation;
 use gravity;
 
@@ -25,6 +25,7 @@ type StarSet = Vec<usize>;
 enum Mode {
     Add,
     Remove,
+    Force,
 }
 
 #[derive(PartialEq)]
@@ -244,20 +245,12 @@ impl eframe::App for GravityApp {
                 ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
             });
         });
+
         let id = Id::new("gravity_view");
         egui::CentralPanel::default().show(ctx, |ui| {
-            if self.play.on {
-                // take a time step
-                let real = ui.input(|i| i.unstable_dt).at_most(1.0 / 30.0);
-                let dt = real * self.play.speed / self.play.steps as f32;
-                for _ in 0..self.play.steps {
-                    self.simulation.step(dt);
-                }
-
-                // request a new timestep
-                ui.ctx().request_repaint();
-                //self.time += ;
-            };
+            // compute time step
+            let real = ui.input(|i| i.unstable_dt).min(1.0 / 30.0);
+            let dt = real * self.play.speed ;
 
             let rect = Rect::from_min_size(Pos2::ZERO, ui.available_size());
             
@@ -307,13 +300,27 @@ impl eframe::App for GravityApp {
                             for index in indices {
                                 self.simulation.remove(index);
                             }
-                        }                            
+                        },
+                        Mode::Force => {
+                            let mut indices = self.select(pointer_pos);
+                        },
                     }
                 }
             }
             if response.dragged_by(egui::PointerButton::Secondary) {
                 self.from_world.pan(response.drag_delta());
             }
+
+            if self.play.on {
+                // take a time step
+                for _ in 0..self.play.steps {
+                    self.simulation.step(dt / self.play.steps as f32);
+                }
+
+                // request a new timestep
+                ui.ctx().request_repaint();
+                //self.time += ;
+            };
         });
     }
 }

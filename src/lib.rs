@@ -115,7 +115,9 @@ fn center_of_mass(items: &Vec<(Vec2<f32>, f32)>) -> (Vec2<f32>, f32) {
 
 impl Node {
     fn create(bbox: &BBox2, items: &Vec<(Vec2<f32>, f32)>) -> Node {
-        assert_ne!(items.len(), 0, "Can't create empty node");
+        if items.is_empty() {
+            return Node {bbox: *bbox, value: (Vec2{x: f32::NAN, y: f32::NAN}, f32::NAN), children: Vec::new()};
+        }
         if items.len() == 1 {
             return Node{bbox: *bbox, value: items[0], children: vec!()};
         }

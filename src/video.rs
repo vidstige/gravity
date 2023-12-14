@@ -111,7 +111,7 @@ fn main() -> std::result::Result<(), std::io::Error> {
     const STEPS: usize = 10;  // steps per frame
     for _ in 0..5000 {
         let t0 = Instant::now();
-        for _ in 0..STEPS {
+        for _ in 0..STEPS {        
             simulation.step(dt / STEPS as f32);
         }
         let duration = t0.elapsed();

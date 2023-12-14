@@ -158,9 +158,16 @@ fn potential_energy((pi, mi): (&Vec2<f32>, &f32), (pj, mj): (&Vec2<f32>, &f32)) 
     -G * mi * mj / pi.sub(&pj).norm2().sqrt()
 }
 
+// The two types of sources of gravity contributions
+pub enum ContributionSource {
+    Exact,
+    BarnesHut(f32),
+}
+
 pub struct Simulation {
     pub state: State,
     pub masses: Vec<f32>,
+    pub contribution_source: ContributionSource,
 }
 
 impl Simulation {
@@ -171,6 +178,7 @@ impl Simulation {
                 velocities: vec!(),
             },
             masses: vec!(),
+            contribution_source: ContributionSource::BarnesHut(THETA),
         }
     }
     pub fn add(&mut self, position: &Vec2<f32>, velocity: &Vec2<f32>, mass: f32) {
@@ -198,7 +206,7 @@ impl Simulation {
         let mut q = self.state.positions.clone();
         let mut v = self.state.velocities.clone();
         for (c, d) in coefficents {
-            v = add_scaled(&v, c * dt, &acceleration(&self.state, &self.masses));
+            v = add_scaled(&v, c * dt, &acceleration(&self.state, &self.masses, &self.contribution_source));
             q = add_scaled(&q, d * dt, &v);
         }
         State{positions: q, velocities: v}
@@ -251,7 +259,6 @@ fn gravity((pi, mi): (Vec2<f32>, f32), (pj, mj): (Vec2<f32>, f32)) -> Vec2<f32> 
 fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32>> {
     //let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     let tree = create_tree(items);
-
     items.par_iter().map(|(p0, m0)| {
         let mut force = Vec2::zero();
         for (p1, m1) in tree.contributions(p0, theta) {
@@ -261,7 +268,7 @@ fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32) -> Vec<Vec2<f32
     }).collect()
 }
 
-fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
+fn gravity_exact(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
     let mut forces: Vec<Vec2<f32>> = items.iter().map(|_| Vec2::zero()).collect();
     for i in 0..items.len()-1 {
         for j in i+1..items.len() {
@@ -272,10 +279,12 @@ fn gravity_direct(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
     forces
 }
 
-fn acceleration(state: &State, masses: &Vec<f32>) -> Vec<Vec2<f32>> {
+fn acceleration(state: &State, masses: &Vec<f32>, contribution_source: &ContributionSource) -> Vec<Vec2<f32>> {
     let items: Vec<_> = state.positions.iter().map(|x| *x).zip(masses.iter().map(|x| *x)).collect();
-    //let forces = gravity_direct(&items);
-    let forces = gravity_barnes_hut(&items, THETA);
+    let forces = match contribution_source {
+        ContributionSource::Exact => gravity_exact(&items),
+        ContributionSource::BarnesHut(theta) => gravity_barnes_hut(&items, *theta),
+    };
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
 }
 

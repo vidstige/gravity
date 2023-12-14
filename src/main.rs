@@ -58,10 +58,11 @@ impl FromWorld {
 struct Play {
     on: bool,
     speed: f32,
+    steps: usize,
 }
 impl Play {
     fn new() -> Play {
-        Play { on: false, speed: 1.0 }
+        Play { on: false, speed: 1.0, steps: 1 }
     }
 }
 
@@ -132,7 +133,8 @@ impl eframe::App for GravityApp {
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
                 ui.checkbox(&mut self.play.on, "play");
-                ui.add(egui::Slider::new(&mut self.play.speed, -1.0..=10.0));
+                ui.add(egui::Slider::new(&mut self.play.speed, -1.0..=10.0).text("speed"));
+                ui.add(egui::Slider::new(&mut self.play.steps, 1..=10).text("sub-stepping"));
 
                 ui.checkbox(&mut self.simulation.barnes_hut, "barnes hut");
                 if self.simulation.barnes_hut {
@@ -167,9 +169,12 @@ impl eframe::App for GravityApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.play.on {
                 // take a time step
-                let dt = ui.input(|i| i.unstable_dt).at_most(1.0 / 30.0);
-                self.simulation.step(dt * self.play.speed);
-    
+                let real = ui.input(|i| i.unstable_dt).at_most(1.0 / 30.0);
+                let dt = real * self.play.speed / self.play.steps as f32;
+                for _ in 0..self.play.steps {
+                    self.simulation.step(dt);
+                }
+
                 // request a new timestep
                 ui.ctx().request_repaint();
                 //self.time += ;

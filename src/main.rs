@@ -148,7 +148,7 @@ impl GravityApp {
         let p = self.from_world.inverse(position);
         let velocity = if self.orbital_velocity {
             let indices = self.select(pointer);
-            gravity::orbital_velocity(&self.simulation.center_of_mass(&indices), &p)
+            gravity::orbital_velocity(&self.simulation.center_of_mass(&indices), &p, self.simulation.g)
         } else {
             gravity::Vec2::zero()
         };
@@ -221,7 +221,7 @@ impl eframe::App for GravityApp {
                     ui.checkbox(&mut self.orbital_velocity, "orbital velocity");
                     ui.add(egui::Slider::new(&mut self.mass, 1.0..=10000.0)
                         .text("mass")
-                        .suffix("g")
+                        .suffix("kg")
                         .logarithmic(true)
                     );
                     ui.add(egui::Slider::new(&mut self.add_speed, 1..=100).text("speed"));

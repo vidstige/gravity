@@ -158,16 +158,13 @@ fn potential_energy((pi, mi): (&Vec2<f32>, &f32), (pj, mj): (&Vec2<f32>, &f32)) 
     -G * mi * mj / pi.sub(&pj).norm2().sqrt()
 }
 
-// The two types of sources of gravity contributions
-pub enum ContributionSource {
-    Exact,
-    BarnesHut(f32),
-}
+
 
 pub struct Simulation {
     pub state: State,
     pub masses: Vec<f32>,
-    pub contribution_source: ContributionSource,
+    pub barnes_hut: bool,
+    pub theta: f32,
 }
 
 impl Simulation {
@@ -178,7 +175,8 @@ impl Simulation {
                 velocities: vec!(),
             },
             masses: vec!(),
-            contribution_source: ContributionSource::BarnesHut(THETA),
+            barnes_hut: true,
+            theta: THETA,
         }
     }
     pub fn add(&mut self, position: &Vec2<f32>, velocity: &Vec2<f32>, mass: f32) {
@@ -206,7 +204,7 @@ impl Simulation {
         let mut q = self.state.positions.clone();
         let mut v = self.state.velocities.clone();
         for (c, d) in coefficents {
-            v = add_scaled(&v, c * dt, &acceleration(&self.state, &self.masses, &self.contribution_source));
+            v = add_scaled(&v, c * dt, &acceleration(&self.state, &self.masses, self.barnes_hut, self.theta));
             q = add_scaled(&q, d * dt, &v);
         }
         State{positions: q, velocities: v}
@@ -279,11 +277,12 @@ fn gravity_exact(items: &Vec<(Vec2<f32>, f32)>) -> Vec<Vec2<f32>> {
     forces
 }
 
-fn acceleration(state: &State, masses: &Vec<f32>, contribution_source: &ContributionSource) -> Vec<Vec2<f32>> {
+fn acceleration(state: &State, masses: &Vec<f32>, barnes_hut: bool, theta: f32) -> Vec<Vec2<f32>> {
     let items: Vec<_> = state.positions.iter().map(|x| *x).zip(masses.iter().map(|x| *x)).collect();
-    let forces = match contribution_source {
-        ContributionSource::Exact => gravity_exact(&items),
-        ContributionSource::BarnesHut(theta) => gravity_barnes_hut(&items, *theta),
+    let forces = if barnes_hut {
+        gravity_barnes_hut(&items, theta)
+    } else {
+        gravity_exact(&items)
     };
     forces.iter().zip(masses.iter()).map(|(f, m)| f.scale(1.0 / m)).collect()
 }

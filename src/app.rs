@@ -209,7 +209,7 @@ impl eframe::App for GravityApp {
 
                 ui.checkbox(&mut self.simulation.barnes_hut, "barnes hut");
                 if self.simulation.barnes_hut {
-                    ui.add(egui::Slider::new(&mut self.simulation.theta, 0.0..=100.0).text("theta"));
+                    ui.add(egui::Slider::new(&mut self.simulation.theta, 0.0..=1.0).text("theta"));
                 }
                 
                 ui.label("Symplectic integrator");

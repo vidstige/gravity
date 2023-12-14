@@ -137,18 +137,18 @@ impl Node {
         return Node{bbox: *bbox, value: Some(center_of_mass(items)), children: childen};
     }
     // find all contributions for a point and threshold (theta)
-    fn contributions(&self, p: &Vec2<f32>, theta: f32) -> Vec<(Vec2<f32>, f32)> {
+    fn contributions(&self, p: &Vec2<f32>, theta2: f32) -> Vec<(Vec2<f32>, f32)> {
         if let Some(value) = self.value {
             let delta = p.sub(&value.0);
             let d2 = delta.norm2();
             let diagonal = self.bbox.diagonal();
             let s2 = diagonal.x * diagonal.y;
             // compare squared values to avoid sqrt as well as making it convenient to use both width and height of node
-            if self.children.len() == 0 || s2 / d2 < theta * theta {
+            if self.children.len() == 0 || s2 / d2 < theta2 {
                 return vec!(value);
             }
             // return childs - filter out self matches
-            self.children.iter().flat_map(|node| node.contributions(p, theta)).filter(|(point, _)| point != p).collect()
+            self.children.iter().flat_map(|node| node.contributions(p, theta2)).filter(|(point, _)| point != p).collect()
         } else {
             vec![]            
         }
@@ -219,7 +219,7 @@ impl Simulation {
             g: 0.2,
             softening: 0.05,
             barnes_hut: true,
-            theta: 2.5,
+            theta: 0.5,
             coefficients: ruth3(),
         }
     }
@@ -256,7 +256,6 @@ impl Simulation {
         State{positions: q, velocities: v}
     }
     pub fn step(&mut self, dt: f32) {
-        // ruth3
         self.state = self.symplectic_step(dt, &self.coefficients);
     }
     pub fn energy(&self) -> f32 {
@@ -269,8 +268,9 @@ impl Simulation {
             }
         }*/
         let tree = create_tree(&items);
+        let theta = self.theta * tree.bbox.diagonal().norm2();
         let potential: f32 = items.par_iter().map(|(p0, m0)|
-            tree.contributions(p0, self.theta).iter().map(|(p1, m1)| potential_energy((p0, m0), (p1, m1), self.g)).sum::<f32>()
+            tree.contributions(p0, theta).iter().map(|(p1, m1)| potential_energy((p0, m0), (p1, m1), self.g)).sum::<f32>()
         ).sum();
  
         kinetic + potential
@@ -280,8 +280,9 @@ impl Simulation {
         let items: Vec<_> = zip(self.state.positions.iter().map(|x| *x), self.masses.iter().map(|x| *x)).collect();
         let tree = create_tree(&items);
 
+        let theta = self.theta * tree.bbox.diagonal().norm2();
         world.iter().map(|p0|
-            tree.contributions(p0, self.theta).iter().map(|(p1, m1)| gravitational_field(self.g, p0, p1, m1, self.softening)).sum()
+            tree.contributions(p0, theta).iter().map(|(p1, m1)| gravitational_field(self.g, p0, p1, m1, self.softening)).sum()
         ).collect()
     }
 }
@@ -301,7 +302,7 @@ fn gravity_barnes_hut(items: &Vec<(Vec2<f32>, f32)>, theta: f32, g: f32, softeni
     let tree = create_tree(items);
     items.par_iter().map(|(p0, m0)| {
         let mut force = Vec2::zero();
-        for (p1, m1) in tree.contributions(p0, theta) {
+        for (p1, m1) in tree.contributions(p0, theta * tree.bbox.diagonal().norm2()) {
             force = force.add(&gravity((*p0, *m0), (p1, m1), g, softening));
         }
         force

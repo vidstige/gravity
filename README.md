@@ -8,7 +8,21 @@ Graivty simulation in rust, using Barnes-Hut tree optimization and parallel comp
 ## running
 The gravity program will print raw video to stdout. You can use ffplay (from the ffmpeg package) to conveniently display it.
 
-    cargo run | ./stream.sh
+    cargo run --release
+
+### wasm
+To run with wasm first install `trunk` like so
+
+    cargo install --locked trunk
+
+Then start a local dev server with
+
+   trunk serve
+
+To deploy to a web server just do
+
+    trunk build --release
+   
 
 ## author
 vidstige

@@ -188,7 +188,11 @@ impl eframe::App for GravityApp {
                 ui.selectable_value(&mut self.mode, Mode::Add, "Add");
                 if self.mode == Mode::Add {
                     ui.checkbox(&mut self.orbital_velocity, "orbital velocity");
-                    ui.add(egui::Slider::new(&mut self.mass, 0.1..=100.0).text("mass"));
+                    ui.add(egui::Slider::new(&mut self.mass, 1.0..=10000.0)
+                        .text("mass")
+                        .suffix("g")
+                        .logarithmic(true)
+                    );
                     ui.radio_value(&mut self.add_mode, AddMode::Single, "Single");
                     ui.radio_value(&mut self.add_mode, AddMode::Uniform, "Uniform");
                     ui.radio_value(&mut self.add_mode, AddMode::Gaussian, "Gaussian");

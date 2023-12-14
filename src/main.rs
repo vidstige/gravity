@@ -88,6 +88,7 @@ struct GravityApp {
     // create mode parameters
     orbital_velocity: bool,
     add_mode: AddMode,
+    spiral_arms: usize,
     add_speed: usize,
     mass: f32,
 }
@@ -124,6 +125,7 @@ impl Default for GravityApp {
             radius: 64.0,
             orbital_velocity: true,
             add_mode: AddMode::Uniform,
+            spiral_arms: 5,
             add_speed: 1,
             mass: 1.0,
         }
@@ -145,7 +147,7 @@ impl GravityApp {
         match self.add_mode {
             AddMode::Single => Pos2::ZERO,
             AddMode::Uniform => random_point_in_circle(&mut self.rng, self.radius),
-            AddMode::Spiral => spiral_galaxy(&mut self.rng, self.radius, 8.0),
+            AddMode::Spiral => spiral_galaxy(&mut self.rng, self.radius, self.spiral_arms as f32),
         }
     }
     fn add_star(&mut self, pointer: Pos2) {
@@ -234,6 +236,10 @@ impl eframe::App for GravityApp {
                     ui.radio_value(&mut self.add_mode, AddMode::Single, "Single");
                     ui.radio_value(&mut self.add_mode, AddMode::Uniform, "Uniform");
                     ui.radio_value(&mut self.add_mode, AddMode::Spiral, "Spiral");
+                    if self.add_mode == AddMode::Spiral {
+                        ui.add(egui::Slider::new(&mut self.spiral_arms, 1..=13));
+                    }
+
                 }
                 ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
             });

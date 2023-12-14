@@ -55,13 +55,26 @@ impl FromWorld {
     }
 }
 
+struct Play {
+    on: bool,
+}
+impl Play {
+    fn new() -> Play {
+        Play { on: false }
+    }
+}
+
 struct GravityApp {
     rng: rand::rngs::ThreadRng,
     simulation: Simulation,
+    // display parameters
     from_world: FromWorld,
-    play: bool,
+    // play parameters
+    play: Play,
+    // mode
     mode: Mode,
     radius: f32,
+    // create mode parameters
     orbital_velocity: bool,
 }
 
@@ -71,7 +84,7 @@ impl Default for GravityApp {
             rng: rand::thread_rng(),
             simulation: Simulation::new(),
             from_world: FromWorld { offset: Vec2::ZERO, scale: 10.0 },
-            play: false,
+            play: Play::new(),
             mode: Mode::Add,
             radius: 64.0,
             orbital_velocity: true,
@@ -117,7 +130,7 @@ impl eframe::App for GravityApp {
         let spacing = Vec2::new(32.0, 32.0);
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
-                ui.checkbox(&mut self.play, "play");
+                ui.checkbox(&mut self.play.on, "play");
             });
             ui.separator();
             ui.vertical(|ui| {
@@ -130,7 +143,7 @@ impl eframe::App for GravityApp {
         });
         let id = Id::new("gravity_view");
         egui::CentralPanel::default().show(ctx, |ui| {
-            if self.play {
+            if self.play.on {
                 // take a time step
                 let dt = ui.input(|i| i.unstable_dt).at_most(1.0 / 30.0);
                 self.simulation.step(dt);

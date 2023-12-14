@@ -163,19 +163,30 @@ impl GravityApp {
     }
 }
 
-fn draw_grid(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld, spacing: Vec2) {
+fn draw_grid(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld, target_spacing: Vec2) {
     let size = ui.available_size();
+
+    let mut spacing = target_spacing * from_world.scale;
+
+    while spacing.x > 2.0 * target_spacing.x { spacing.x *= 0.5; }
+    while spacing.x < 2.0 * target_spacing.x { spacing.x *= 2.0; }
+
+    while spacing.y > 2.0 * target_spacing.y { spacing.y *= 0.5; }
+    while spacing.y < 2.0 * target_spacing.y { spacing.y *= 2.0; }
 
     let color = Color32::from_rgb(00, 0x8b, 0x8b);
     let stroke = Stroke { width: 1.0, color};
-    let grid_size = size / spacing;
-    let (grid_width, grid_height) = (grid_size.x as usize, grid_size.y as usize);
     let painter = ui.painter();
+
+    let o = Vec2::new(from_world.offset.x % spacing.x, from_world.offset.y % spacing.y);
+
+    let grid_size = size / spacing;
+    let (grid_width, grid_height) = (grid_size.x as i32, grid_size.y as i32);
     let d10 = Vec2::new(spacing.x, 0.0);
     let d01 = Vec2::new(0.0, spacing.y);
-    for y in 0..grid_height + 1 {
-        for x in 0..grid_width + 1 {
-            let p = Pos2::new(x as f32 * spacing.x, y as f32 * spacing.y);
+    for y in -1..grid_height + 1 {
+        for x in -1..grid_width + 1 {
+            let p = Pos2::new(x as f32 * spacing.x, y as f32 * spacing.y) + o;
             painter.line_segment([p, p + d10], stroke);
             painter.line_segment([p, p + d01], stroke);
         }

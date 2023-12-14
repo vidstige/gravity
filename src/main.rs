@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use std::f32::consts::TAU;
+use std::{f32::consts::TAU, ops::Range};
 use rand::prelude::*;
 
 use eframe::{egui::{self, Ui, Sense, Id}, epaint::{Color32, Pos2, Vec2, Stroke, Rect}, emath::NumExt};
@@ -131,6 +131,9 @@ impl eframe::App for GravityApp {
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
                 ui.checkbox(&mut self.play.on, "play");
+                ui.checkbox(&mut self.simulation.barnes_hut, "barnes hut");
+                ui.add(egui::Slider::new(&mut self.simulation.theta, 0.0..=100.0).text("theta"));
+
             });
             ui.separator();
             ui.vertical(|ui| {

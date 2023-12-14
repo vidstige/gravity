@@ -88,6 +88,7 @@ struct GravityApp {
     // create mode parameters
     orbital_velocity: bool,
     add_mode: AddMode,
+    add_speed: usize,
     mass: f32,
 }
 
@@ -117,6 +118,7 @@ impl Default for GravityApp {
             radius: 64.0,
             orbital_velocity: true,
             add_mode: AddMode::Uniform,
+            add_speed: 1,
             mass: 1.0,
         }
     }
@@ -139,6 +141,18 @@ impl GravityApp {
             AddMode::Uniform => random_point_in_circle(&mut self.rng, self.radius),
             AddMode::Spiral => spiral_galaxy(&mut self.rng, self.radius, 8.0),
         }
+    }
+    fn add_star(&mut self, pointer: Pos2) {
+        let relative_position = self.sample();
+        let position = pointer + relative_position.to_vec2();
+        let p = self.from_world.inverse(position);
+        let velocity = if self.orbital_velocity {
+            let indices = self.select(pointer);
+            gravity::orbital_velocity(&self.simulation.center_of_mass(&indices), &p)
+        } else {
+            gravity::Vec2::zero()
+        };
+        self.simulation.add(&p, &velocity, self.mass);
     }
 }
 
@@ -208,6 +222,7 @@ impl eframe::App for GravityApp {
                         .suffix("g")
                         .logarithmic(true)
                     );
+                    ui.add(egui::Slider::new(&mut self.add_speed, 1..=100).text("speed"));
                     ui.radio_value(&mut self.add_mode, AddMode::Single, "Single");
                     ui.radio_value(&mut self.add_mode, AddMode::Uniform, "Uniform");
                     ui.radio_value(&mut self.add_mode, AddMode::Spiral, "Spiral");
@@ -257,23 +272,19 @@ impl eframe::App for GravityApp {
             let response = ui.interact(rect, id, Sense::click_and_drag());
             if response.clicked_by(egui::PointerButton::Primary) {
                 if self.mode == Mode::Add && self.add_mode == AddMode::Single {
-                    
+                    if let Some(pointer_pos) = response.interact_pointer_pos() {
+                        self.add_star(pointer_pos);
+                    }
                 }
             }
             if response.dragged_by(egui::PointerButton::Primary) {
                 if let Some(pointer_pos) = response.interact_pointer_pos() {
                     match self.mode {
                         Mode::Add => {
-                            let relative_position = self.sample();
-                            let position = pointer_pos + relative_position.to_vec2();
-                            let p = self.from_world.inverse(position);
-                            let velocity = if self.orbital_velocity {
-                                let indices = self.select(pointer_pos);
-                                gravity::orbital_velocity(&self.simulation.center_of_mass(&indices), &p)
-                            } else {
-                                gravity::Vec2::zero()
-                            };
-                            self.simulation.add(&p, &velocity, self.mass);
+                            if self.add_mode == AddMode::Single { return; }
+                            for _ in 0..self.add_speed {
+                                self.add_star(pointer_pos);
+                            }
                         },
                         Mode::Remove => {
                             let mut indices = self.select(pointer_pos);

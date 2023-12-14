@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use std::{f32::consts::TAU, ops::Range};
+use std::f32::consts::TAU;
 use rand::prelude::*;
 
 use eframe::{egui::{self, Ui, Sense, Id}, epaint::{Color32, Pos2, Vec2, Stroke, Rect}, emath::NumExt};
@@ -133,6 +133,20 @@ impl eframe::App for GravityApp {
                 ui.checkbox(&mut self.play.on, "play");
                 ui.checkbox(&mut self.simulation.barnes_hut, "barnes hut");
                 ui.add(egui::Slider::new(&mut self.simulation.theta, 0.0..=100.0).text("theta"));
+                
+                ui.label("Symplectic integrator");
+                if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::euler(), "Euler")).clicked() {
+                    self.simulation.coefficients = gravity::euler();
+                }
+                if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::leap2(), "Leap 2")).clicked() {
+                    self.simulation.coefficients = gravity::leap2();
+                }
+                if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::ruth3(), "Ruth 3")).clicked() {
+                    self.simulation.coefficients = gravity::ruth3();
+                }
+                if ui.add(egui::RadioButton::new(self.simulation.coefficients == gravity::ruth4(), "Ruth 4")).clicked() {
+                    self.simulation.coefficients = gravity::ruth4();
+                }
 
             });
             ui.separator();

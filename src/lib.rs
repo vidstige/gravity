@@ -1,7 +1,6 @@
 
-use std::{f64::consts::TAU, iter::zip};
+use std::iter::zip;
 
-use probability::prelude::*;
 use rayon::prelude::*;
 
 const G: f32 = 0.2; // Gravitational constant. (m^2⋅kg^-1⋅s^−2)
@@ -307,46 +306,3 @@ pub fn orbital_velocity((center, mass): &(Vec2<f32>, f32), p: &Vec2<f32>) -> Vec
     let vo = (G * mass / r).sqrt();
     delta.cross().scale(vo / r)
 }
-
-/*
-fn random_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
-    let mut source = source::default().seed([1337, 1337]);
-    let distribution = Gaussian::new(0.0, radius.sqrt());
-    let mut sampler = Independent(&distribution, &mut source);
-    let mut positions = vec!();
-    for _ in 0..n {
-        let position = Vec2::make(
-            sampler.next().unwrap() as f32,
-            sampler.next().unwrap() as f32,
-        );
-        if position.norm2().sqrt() > radius as f32 * 0.1 {
-            positions.push(position);
-        }
-    }
-    positions
-}
-
-fn spiral_galaxy(n: usize, radius: f64) -> Vec<Vec2<f32>> {
-    let inner = 0.2 * radius as f32;
-    let arms = 31.0;
-    let parameters: Vec<(f32, f32)> = (0..n).map(|i| i as f32 / n as f32).map(|t| (arms * t * TAU as f32, inner + t * (radius as f32 - inner))).collect();
-    parameters.iter().map(|(a, r)| Vec2::make(r * a.cos(), r * a.sin())).collect()
-}
-
-fn add_galaxy(simulation: &mut Simulation, n: usize, center: &Vec2<f32>, velocity: &Vec2<f32>, mass: f32, radius: f64) {
-    let stars_fraction = 0.5;  // half of the mass is for stars
-    let star_mass = stars_fraction * mass / n as f32;
-    let black_hole_mass = mass - stars_fraction * mass; // the rest is for the black hole
-    // add stars
-    let items: Vec<_> = random_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
-    //let items: Vec<_> = spiral_galaxy(n, radius).iter().map(|p| (center.add(p), star_mass)).collect();
-    // add black hole
-    let center_of_mass = simulation.center_of_mass();
-    for (p, m) in items.iter() {
-        let v = orbital_velocity(&center_of_mass, p);
-        simulation.add(p, &v.add(velocity), *m);
-    }
-    simulation.add(center, &velocity, black_hole_mass);
-}
-
-*/

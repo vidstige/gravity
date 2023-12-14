@@ -8,5 +8,4 @@ edition = "2018"
 [dependencies]
 rand = "0.8.5"
 eframe = "0.24.1"
-probability = "0.18.0"
 rayon = "1.5"

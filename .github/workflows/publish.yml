@@ -14,7 +14,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Install trunk
-      run: cargo install --locked trunk
+    - uses: jetli/trunk-action@v0.4.0
     - name: Build for wasm
       run: trunk build --release

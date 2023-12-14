@@ -159,12 +159,32 @@ fn potential_energy((pi, mi): (&Vec2<f32>, &f32), (pj, mj): (&Vec2<f32>, &f32)) 
 }
 
 
-
+type Coefficients = Vec<(f32, f32)>;
 pub struct Simulation {
     pub state: State,
     pub masses: Vec<f32>,
     pub barnes_hut: bool,
     pub theta: f32,
+    pub coefficients: Coefficients, // coefficients for symplectic integrator
+}
+
+pub fn euler() -> Coefficients { vec!((1.0, 1.0)) }
+pub fn leap2() -> Coefficients { vec!((0.5, 0.0), (0.5, 1.0)) }
+pub fn ruth3() -> Coefficients {
+    vec!(
+        (2.0/3.0, 7.0/24.0),
+        (-2.0/3.0, 0.75),
+        (1.0, -1.0/24.0),
+    )
+}
+pub fn ruth4() -> Coefficients {
+    let c = (2.0 as f32).powf(1.0 / 3.0);
+    vec!(
+        (0.5 / (2.0 - c), 0.0),
+        (0.5 * (1.0 - c) / (2.0 - c), 1.0 / (2.0 - c)),
+        (0.5 * (1.0 - c) / (2.0 - c), -c / (2.0 - c)),
+        (0.5 / (2.0 - c), 1.0 / (2.0 - c)),
+    )
 }
 
 impl Simulation {
@@ -177,6 +197,7 @@ impl Simulation {
             masses: vec!(),
             barnes_hut: true,
             theta: THETA,
+            coefficients: ruth3(),
         }
     }
     pub fn add(&mut self, position: &Vec2<f32>, velocity: &Vec2<f32>, mass: f32) {
@@ -210,21 +231,8 @@ impl Simulation {
         State{positions: q, velocities: v}
     }
     pub fn step(&mut self, dt: f32) {
-        //let euler = vec!((1.0, 1.0));
-        //let leap2 = vec!((0.5, 0.0), (0.5, 1.0));
-        let ruth3 = vec!(
-            (2.0/3.0, 7.0/24.0),
-            (-2.0/3.0, 0.75),
-            (1.0, -1.0/24.0),
-        );
-        /*let c = (2.0 as f32).powf(1.0 / 3.0);
-        let ruth4 = vec!(
-            (0.5 / (2.0 - c), 0.0),
-            (0.5*(1.0-c)/ (2.0 - c), 1.0/ (2.0 - c)),
-            (0.5*(1.0-c)/ (2.0 - c), -c/ (2.0 - c)),
-            (0.5/ (2.0 - c), 1.0/ (2.0 - c)),
-        );*/
-        self.state = self.symplectic_step(dt, &ruth3);
+        // ruth3
+        self.state = self.symplectic_step(dt, &self.coefficients);
     }
     fn energy(&self, theta: f32) -> f32 {
         let items: Vec<_> = self.state.positions.iter().map(|x| *x).zip(self.masses.iter().map(|x| *x)).collect();

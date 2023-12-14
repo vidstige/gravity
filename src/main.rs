@@ -242,6 +242,7 @@ impl eframe::App for GravityApp {
                     }
 
                 }
+                ui.selectable_value(&mut self.mode, Mode::Force, "Force");
                 ui.selectable_value(&mut self.mode, Mode::Remove, "Remove");
             });
         });
@@ -302,7 +303,15 @@ impl eframe::App for GravityApp {
                             }
                         },
                         Mode::Force => {
-                            let mut indices = self.select(pointer_pos);
+                            let indices = self.select(pointer_pos);
+                            // compute acceleration based on mouse movement
+
+                            let a = 0.01 * response.drag_delta() / self.from_world.scale / dt;
+                            println!("{:?}", a);
+                            for index in indices {
+                                self.simulation.state.velocities[index].x += a.x;
+                                self.simulation.state.velocities[index].y += a.y;
+                            }
                         },
                     }
                 }

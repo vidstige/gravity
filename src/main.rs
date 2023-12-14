@@ -44,7 +44,6 @@ impl FromWorld {
     fn transform(&self, position: &gravity::Vec2<f32>) -> Pos2 {
         Pos2::new(self.scale * position.x, self.scale * position.y) + self.offset
     }
-    
     fn inverse(&self, position: Pos2) -> gravity::Vec2<f32> {
         let p = position - self.offset;
         gravity::Vec2 { x: p.x / self.scale, y: p.y / self.scale }
@@ -163,13 +162,13 @@ impl GravityApp {
     }
 }
 
-fn draw_grid(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld, target_spacing: Vec2) {
+fn draw_grid(ui: &mut Ui, from_world: &FromWorld, target_spacing: Vec2) {
     let size = ui.available_size();
 
     let spacing_scale = from_world.scale / (2.0 as f32).powi(from_world.scale.log2() as i32);
     let spacing = target_spacing * spacing_scale;
 
-    let color = Color32::from_rgb(00, 0x8b, 0x8b);
+    let color = Color32::from_rgb(0x44, 0x44, 0x44);
     let stroke = Stroke { width: 1.0, color};
     let painter = ui.painter();
 
@@ -178,37 +177,13 @@ fn draw_grid(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld, targe
     let grid_size = size / spacing;
     let (grid_width, grid_height) = (grid_size.x as usize + 2, grid_size.y as usize + 2);
     
-    // compute screen cordinates
-    let mut screen: Vec<Pos2> = Vec::with_capacity(grid_height * grid_width);
-    for y in 0..grid_height {
-        for x in 0..grid_width {
-            let p = Pos2::new((x as f32 - 1.0) * spacing.x, (y as f32 - 1.0) * spacing.y) + o;
-            screen.push(p);
-        }
+    for gx in 0..grid_width {
+        let x = (gx as f32 - 1.0) * spacing.x + o.x;
+        painter.vline(x, 0.0..=size.y, stroke);
     }
-
-    // compute world points
-    //let world: Vec<_> = screen.iter().map(|p| from_world.inverse(*p)).collect();
-
-    // compute gravitational field value at world points
-    //let field = simulation.field(&world);
-    // find highest field norm
-    //let high = field.iter().map(|f| f.norm2()).max_by(|a, b| b.partial_cmp(a).unwrap()).unwrap_or(f32::INFINITY).sqrt();
-    
-    //let d10 = Vec2::new(spacing.x, 0.0);
-    //let d01 = Vec2::new(0.0, spacing.y);
-    let mut i = 0;
-    for y in 0..grid_height-1 {
-        for x in 0..grid_width-1 {
-            let p00 = screen[i];
-            let p10 = screen[i + 1];
-            let p01 = screen[i + grid_width];
-            painter.line_segment([p00, p10], stroke);
-            painter.line_segment([p00, p01], stroke);
-
-            i += 1;
-        }
-        i += 1;
+    for gy in 0..grid_height {
+        let y = (gy as f32 - 1.0) * spacing.y + o.y;
+        painter.hline(0.0..=size.x, y, stroke);
     }
 }
 
@@ -223,7 +198,7 @@ fn draw_stars(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld) {
 impl eframe::App for GravityApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
-        let spacing = Vec2::new(64.0, 64.0);
+        let spacing = Vec2::new(16.0, 16.0);
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
                 ui.checkbox(&mut self.play.on, "play");
@@ -291,7 +266,7 @@ impl eframe::App for GravityApp {
                 }
             });
 
-            draw_grid(ui, &self.simulation, &self.from_world, spacing);
+            draw_grid(ui, &self.from_world, spacing);
             draw_stars(ui, &self.simulation, &self.from_world);
 
             // display energy

@@ -3,7 +3,7 @@ use std::iter::{zip, Sum};
 
 use rayon::prelude::*;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec2<T> {
     pub x: T,
     pub y: T,
@@ -94,7 +94,7 @@ fn bbox(points: &Vec<Vec2<f32>>) -> BBox2 {
 
 struct Node {
     bbox: BBox2,
-    value: (Vec2<f32>, f32),
+    value: Option<(Vec2<f32>, f32)>,
     children: Vec<Node>,
 }
 
@@ -122,10 +122,10 @@ fn center_of_mass(items: &Vec<(Vec2<f32>, f32)>) -> (Vec2<f32>, f32) {
 impl Node {
     fn create(bbox: &BBox2, items: &Vec<(Vec2<f32>, f32)>) -> Node {
         if items.is_empty() {
-            return Node {bbox: *bbox, value: (Vec2{x: f32::NAN, y: f32::NAN}, f32::NAN), children: Vec::new()};
+            return Node {bbox: *bbox, value: None, children: Vec::new()};
         }
         if items.len() == 1 {
-            return Node{bbox: *bbox, value: items[0], children: vec!()};
+            return Node{bbox: *bbox, value: Some(items[0]), children: vec!()};
         }
         let mut childen = vec!();
         for quad in quads(bbox) {
@@ -134,20 +134,24 @@ impl Node {
                 childen.push(Node::create(&quad, &inside));
             }
         }
-        return Node{bbox: *bbox, value: center_of_mass(items), children: childen};
+        return Node{bbox: *bbox, value: Some(center_of_mass(items)), children: childen};
     }
     // find all contributions for a point and threshold (theta)
     fn contributions(&self, p: &Vec2<f32>, theta: f32) -> Vec<(Vec2<f32>, f32)> {
-        let delta = p.sub(&self.value.0);
-        let d2 = delta.norm2();
-        let diagonal = self.bbox.diagonal();
-        let s2 = diagonal.x * diagonal.y;
-        // compare squared values to avoid sqrt as well as making it convenient to use both width and height of node
-        if self.children.len() == 0 || s2 / d2 < theta * theta {
-            return vec!(self.value);
+        if let Some(value) = self.value {
+            let delta = p.sub(&value.0);
+            let d2 = delta.norm2();
+            let diagonal = self.bbox.diagonal();
+            let s2 = diagonal.x * diagonal.y;
+            // compare squared values to avoid sqrt as well as making it convenient to use both width and height of node
+            if self.children.len() == 0 || s2 / d2 < theta * theta {
+                return vec!(value);
+            }
+            // return childs - filter out self matches
+            self.children.iter().flat_map(|node| node.contributions(p, theta)).filter(|(point, _)| point != p).collect()
+        } else {
+            vec![]            
         }
-        // return childs - filter out self matches
-        self.children.iter().flat_map(|node| node.contributions(p, theta)).filter(|(point, _)| point != p).collect()
     }
 }
 fn create_tree(items: &Vec<(Vec2<f32>, f32)>) -> Node {
@@ -197,11 +201,11 @@ pub fn ruth4() -> Coefficients {
     )
 }
 
-fn gravitational_field(g: f32, p0: &Vec2<f32>, p1: &Vec2<f32>, m1: &f32) -> Vec2<f32> {
+fn gravitational_field(g: f32, p0: &Vec2<f32>, p1: &Vec2<f32>, m1: &f32, softening: f32) -> Vec2<f32> {
     let r = p1.sub(p0);
     let d2 = r.norm2();
     let d = d2.sqrt();
-    r.scale(-g * m1 / (d2 * d))
+    r.scale(1.0 / (d + softening)).scale(-g * m1 / (d2 + softening*softening))
 }
 
 impl Simulation {
@@ -277,7 +281,7 @@ impl Simulation {
         let tree = create_tree(&items);
 
         world.iter().map(|p0|
-            tree.contributions(p0, self.theta).iter().map(|(p1, m1)| gravitational_field(self.g, p0, p1, m1)).sum()
+            tree.contributions(p0, self.theta).iter().map(|(p1, m1)| gravitational_field(self.g, p0, p1, m1, self.softening)).sum()
         ).collect()
     }
 }

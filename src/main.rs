@@ -156,10 +156,9 @@ impl GravityApp {
     }
 }
 
-fn draw(ui: &mut Ui, simulation: &Simulation, spacing: Vec2, from_world: &FromWorld) {
+fn draw_grid(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld, spacing: Vec2) {
     let size = ui.available_size();
-    
-    // draw grid
+
     let color = Color32::from_rgb(00, 0x8b, 0x8b);
     let stroke = Stroke { width: 1.0, color};
     let grid_size = size / spacing;
@@ -174,8 +173,11 @@ fn draw(ui: &mut Ui, simulation: &Simulation, spacing: Vec2, from_world: &FromWo
             painter.line_segment([p, p + d01], stroke);
         }
     }
+    
+}
 
-    // draw masses
+fn draw_stars(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld) {
+    let painter = ui.painter();
     let color = Color32::from_rgba_premultiplied(00, 0x8b, 0x8b, 0x40);
     for position in simulation.state.positions.iter() {
         painter.circle_filled(from_world.transform(position), 3.0, color);
@@ -258,7 +260,8 @@ impl eframe::App for GravityApp {
                 }
             });
 
-            draw(ui, &self.simulation, spacing, &self.from_world);
+            draw_grid(ui, &self.simulation, &self.from_world, spacing);
+            draw_stars(ui, &self.simulation, &self.from_world);
 
             // display energy
             ui.label(format!("E = {:.1}", self.simulation.energy()));

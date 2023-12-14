@@ -193,19 +193,22 @@ fn draw_grid(ui: &mut Ui, simulation: &Simulation, from_world: &FromWorld, targe
     // compute gravitational field value at world points
     //let field = simulation.field(&world);
     // find highest field norm
-    //let high = field.iter().map(|f| f.norm2()).max_by(|a, b| b.partial_cmp(a).unwrap()).unwrap().sqrt();
+    //let high = field.iter().map(|f| f.norm2()).max_by(|a, b| b.partial_cmp(a).unwrap()).unwrap_or(f32::INFINITY).sqrt();
     
-    let d10 = Vec2::new(spacing.x, 0.0);
-    let d01 = Vec2::new(0.0, spacing.y);
+    //let d10 = Vec2::new(spacing.x, 0.0);
+    //let d01 = Vec2::new(0.0, spacing.y);
     let mut i = 0;
-    for y in 0..grid_height {
-        for x in 0..grid_width {
-            let p = screen[i];
-            painter.line_segment([p, p + d10], stroke);
-            painter.line_segment([p, p + d01], stroke);
+    for y in 0..grid_height-1 {
+        for x in 0..grid_width-1 {
+            let p00 = screen[i];
+            let p10 = screen[i + 1];
+            let p01 = screen[i + grid_width];
+            painter.line_segment([p00, p10], stroke);
+            painter.line_segment([p00, p01], stroke);
 
             i += 1;
         }
+        i += 1;
     }
 }
 

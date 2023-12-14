@@ -1,5 +1,5 @@
 
-use std::iter::zip;
+use std::iter::{zip, Sum};
 
 use rayon::prelude::*;
 
@@ -32,6 +32,18 @@ impl Vec2<f32> {
         Vec2{x: -self.y, y: self.x}
     }
 }
+
+impl Sum for Vec2<f32> {
+    fn sum<I>(iter: I) -> Self where I: Iterator<Item = Vec2<f32>>
+    {
+        let mut total = Vec2 { x: 0.0, y: 0.0 };
+         for point in iter {
+            total.x += point.x;
+            total.y += point.y;
+        }
+        total
+   }
+ }
 
 fn add_scaled(first: &Vec<Vec2<f32>>, k: f32, second: &Vec<Vec2<f32>>) -> Vec<Vec2<f32>> {
     first.iter().zip(second.iter()).map(|(a, b)| a.add(&b.scale(k))).collect()
@@ -185,6 +197,13 @@ pub fn ruth4() -> Coefficients {
     )
 }
 
+fn gravitational_field(g: f32, p0: &Vec2<f32>, p1: &Vec2<f32>, m1: &f32) -> Vec2<f32> {
+    let r = p1.sub(p0);
+    let d2 = r.norm2();
+    let d = d2.sqrt();
+    r.scale(-g * m1 / (d2 * d))
+}
+
 impl Simulation {
     pub fn new() -> Self {
         Simulation{
@@ -251,6 +270,15 @@ impl Simulation {
         ).sum();
  
         kinetic + potential
+    }
+
+    pub fn field(&self, world: &[Vec2<f32>]) -> Vec<Vec2<f32>> {
+        let items: Vec<_> = zip(self.state.positions.iter().map(|x| *x), self.masses.iter().map(|x| *x)).collect();
+        let tree = create_tree(&items);
+
+        world.iter().map(|p0|
+            tree.contributions(p0, self.theta).iter().map(|(p1, m1)| gravitational_field(self.g, p0, p1, m1)).sum()
+        ).collect()
     }
 }
 

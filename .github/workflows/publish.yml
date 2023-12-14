@@ -14,5 +14,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install trunk
+      run: cargo install --locked trunk
     - name: Build for wasm
       run: trunk build --release

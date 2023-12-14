@@ -195,6 +195,9 @@ impl eframe::App for GravityApp {
 
             draw(ui, &self.simulation, spacing, &self.from_world);
 
+            // display energy
+            ui.label(format!("E = {:.1}", self.simulation.energy()));
+
             let response = ui.interact(rect, id, Sense::hover());
             if let Some(hover_pos) = response.hover_pos() {
                 let stroke = Stroke { width: 1.0, color: Color32::WHITE};

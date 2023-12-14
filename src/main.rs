@@ -57,10 +57,11 @@ impl FromWorld {
 
 struct Play {
     on: bool,
+    speed: f32,
 }
 impl Play {
     fn new() -> Play {
-        Play { on: false }
+        Play { on: false, speed: 1.0 }
     }
 }
 
@@ -131,6 +132,8 @@ impl eframe::App for GravityApp {
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
                 ui.checkbox(&mut self.play.on, "play");
+                ui.add(egui::Slider::new(&mut self.play.speed, -1.0..=10.0));
+
                 ui.checkbox(&mut self.simulation.barnes_hut, "barnes hut");
                 if self.simulation.barnes_hut {
                     ui.add(egui::Slider::new(&mut self.simulation.theta, 0.0..=100.0).text("theta"));
@@ -165,7 +168,7 @@ impl eframe::App for GravityApp {
             if self.play.on {
                 // take a time step
                 let dt = ui.input(|i| i.unstable_dt).at_most(1.0 / 30.0);
-                self.simulation.step(dt);
+                self.simulation.step(dt * self.play.speed);
     
                 // request a new timestep
                 ui.ctx().request_repaint();

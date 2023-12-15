@@ -160,6 +160,7 @@ fn create_tree(items: &Vec<(Vec2<f32>, f32)>) -> Node {
 }
 
 // physics
+#[derive(Clone)]
 pub struct State {
     pub positions: Vec<Vec2<f32>>,
     pub velocities: Vec<Vec2<f32>>,
@@ -245,15 +246,14 @@ impl Simulation {
     }
     // Generic symplectic step for integrating hamiltonians
     fn symplectic_step(&self, dt: f32, coefficents: &Vec<(f32, f32)>) -> State {
-        let mut q = self.state.positions.clone();
-        let mut v = self.state.velocities.clone();
+        let mut state = self.state.clone();
         for (c, d) in coefficents 
         {
-            let a = acceleration(&self.state, &self.masses, self.barnes_hut, self.theta, self.g, self.softening);
-            v = add_scaled(&v, c * dt, &a);
-            q = add_scaled(&q, d * dt, &v);
+            let a = acceleration(&state, &self.masses, self.barnes_hut, self.theta, self.g, self.softening);
+            state.velocities = add_scaled(&state.velocities, c * dt, &a);
+            state.positions = add_scaled(&state.positions, d * dt, &state.velocities);
         }
-        State{positions: q, velocities: v}
+        state
     }
     pub fn step(&mut self, dt: f32) {
         self.state = self.symplectic_step(dt, &self.coefficients);

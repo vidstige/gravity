@@ -22,7 +22,7 @@ jobs:
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2.6.0
     - name: Build for wasm
-      run: trunk build --release --public-url "${GITHUB_REPOSITORY#*/}"
+      run: trunk build --release --public-url "/gravity/"
     - name: Upload GitHub Pages artifact
       uses: actions/upload-pages-artifact@v3
       with:

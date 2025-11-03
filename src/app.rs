@@ -200,7 +200,22 @@ impl eframe::App for GravityApp {
         let spacing = Vec2::new(16.0, 16.0);
         egui::SidePanel::right("control_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
-                ui.checkbox(&mut self.play.on, "play");
+                ui.horizontal(|ui| {
+                    let (label, fill) = if self.play.on {
+                        ("Pause", Color32::from_rgb(0x88, 0x3c, 0x3c))
+                    } else {
+                        ("Play", Color32::from_rgb(0x35, 0x8a, 0x50))
+                    };
+                    let button = egui::Button::new(label)
+                        .min_size(Vec2::new(72.0, 24.0))
+                        .fill(fill)
+                        .stroke(Stroke { width: 1.0, color: Color32::BLACK });
+                    if ui.add(button).clicked() {
+                        self.play.on = !self.play.on;
+                    }
+                    let status = if self.play.on { "Playing" } else { "Paused" };
+                    ui.label(status);
+                });
                 ui.add(egui::Slider::new(&mut self.play.speed, -1.0..=10.0).text("speed"));
                 ui.add(egui::Slider::new(&mut self.play.steps, 1..=10).text("sub-stepping"));
 

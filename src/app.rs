@@ -278,8 +278,8 @@ impl eframe::App for GravityApp {
                     self.from_world.zoom(i.zoom_delta(), hover_pos);
                 }
                 // control circle with mouse
-                if i.scroll_delta != Vec2::ZERO {
-                    self.radius = (self.radius + 0.1 * i.scroll_delta.y).clamp(0.0, 1024.0);
+                if i.smooth_scroll_delta != Vec2::ZERO {
+                    self.radius = (self.radius + 0.1 * i.smooth_scroll_delta.y).clamp(0.0, 1024.0);
                 }
             });
 

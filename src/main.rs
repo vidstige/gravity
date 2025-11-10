@@ -22,7 +22,7 @@ fn main() -> eframe::Result<()> {
                 ..Style::default()
             };
             creation_context.egui_ctx.set_style(style);
-            Box::new(app::GravityApp::new())
+            Ok(Box::new(app::GravityApp::new()))
         }),
     )
 }
